@@ -5,10 +5,14 @@
 
     <script src="js/OrbitAndPanControls.js"></script>
     <script src="js/ColladaLoader.js"></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.58/Tone.js"
+      integrity="sha512-QhmI/idBFIq3hd9NsBFF8y6i5ziFjZP1bea5/J7piTjn6duaZ1LPsFuo26nTXeE1l98vOtXdNkHSzxVDmqVneg=="
+      crossorigin="anonymous"
+    ></script>
 
     <!-- extras -->
     <script src="js/base64binary.js" type="text/javascript"></script>
-    <script src="maps/scriabin.js" type="text/javascript"></script>
 
     <script src="js/MIDI/AudioDetect.js" type="text/javascript"></script>
     <script src="js/MIDI/LoadPlugin.js" type="text/javascript"></script>
@@ -59,7 +63,6 @@
       MIDI.loader = new widgets.Loader({
         message: "Loading: Soundfont...",
       });
-
       function smoothstep(a, b, x) {
         if (x < a) return 0.0;
         if (x > b) return 1.0;
@@ -70,6 +73,73 @@
         return a + (b - a) * Math.min(Math.max(x, 0.0), 1.0);
       }
 
+      var piano = new Tone.Sampler({
+        urls: {
+          C2: "C2.mp3",
+          Db2: "Db2.mp3",
+          D2: "D2.mp3",
+          Eb2: "Eb2.mp3",
+          E2: "E2.mp3",
+          F2: "F2.mp3",
+          Gb2: "Gb2.mp3",
+          G2: "G2.mp3",
+          Ab2: "Ab2.mp3",
+          A2: "A2.mp3",
+          Bb2: "Bb2.mp3",
+          B2: "B2.mp3",
+          C3: "C3.mp3",
+          Db3: "Db3.mp3",
+          D3: "D3.mp3",
+          Eb3: "Eb3.mp3",
+          E3: "E3.mp3",
+          F3: "F3.mp3",
+          Gb3: "Gb3.mp3",
+          G3: "G3.mp3",
+          Ab3: "Ab3.mp3",
+          A3: "A3.mp3",
+          Bb3: "Bb3.mp3",
+          B3: "B3.mp3",
+          C4: "C4.mp3",
+          Db4: "Db4.mp3",
+          D4: "D4.mp3",
+          Eb4: "Eb4.mp3",
+          E4: "E4.mp3",
+          F4: "F4.mp3",
+          Gb4: "Gb4.mp3",
+          G4: "G4.mp3",
+          Ab4: "Ab4.mp3",
+          A4: "A4.mp3",
+          Bb4: "Bb4.mp3",
+          B4: "B4.mp3",
+          C5: "C5.mp3",
+          Db5: "Db5.mp3",
+          D5: "D5.mp3",
+          Eb5: "Eb5.mp3",
+          E5: "E5.mp3",
+          F5: "F5.mp3",
+          Gb5: "Gb5.mp3",
+          G5: "G5.mp3",
+          Ab5: "Ab5.mp3",
+          A5: "A5.mp3",
+          Bb5: "Bb5.mp3",
+          B5: "B5.mp3",
+        },
+        baseUrl: "soundfont/acoustic_grand_piano-mp3/",
+        onload: () => {
+          console.log("Loaded piano!");
+        },
+      }).toDestination();
+
+      var tone = piano;
+      var chorus = new Tone.Chorus(0.001).toDestination().start();
+      var reverb = new Tone.Reverb(0.001).toDestination();
+      var phaser = new Tone.Phaser(0.001).toDestination();
+      var vibrato = new Tone.Vibrato(0.001).toDestination();
+      tone.connect(chorus);
+      tone.connect(reverb);
+      tone.connect(phaser);
+      tone.connect(vibrato);
+
       var controls = new (function () {
         this.key_attack_time = 9.0;
         this.key_max_rotation = 0.72;
@@ -77,6 +147,11 @@
         this.map = "scriabin";
         this.song = "game_of_thrones.mid";
         this.mode = "lerp";
+        this.instrument = "grandpiano";
+        this.chorusAmount = 0;
+        this.reverbAmount = 0;
+        this.phaserAmount = 0;
+        this.vibratoAmount = 0;
         this.play = function () {
           MIDI.Player.resume();
         };
@@ -412,8 +487,8 @@
             var delay = 0; // play one note every quarter second
             var note = parseInt(note.substr(1)) + 21; // the MIDI note
             var velocity = 127; // how hard the note hits
-            MIDI.setVolume(0, 127);
-            MIDI.noteOn(0, note, velocity, delay);
+            const freq = Tone.Frequency(note, "midi").toFrequency();
+            tone.triggerAttack(freq);
           }
         }
       };
@@ -427,8 +502,10 @@
           var delay = 0; // play one note every quarter second
           var note = parseInt(note.substr(1)) + 21;
           var velocity = 127; // how hard the note hits
-          MIDI.setVolume(0, 127);
-          MIDI.noteOff(0, note, delay + 0.08);
+          const freq = Tone.Frequency(note, "midi").toFrequency();
+          tone.triggerRelease(freq);
+          // MIDI.setVolume(0, 127);
+          // MIDI.noteOff(0, note, delay + 0.08);
         }
       };
 
@@ -481,23 +558,109 @@
           // gui.add(controls, "key_attack_time", 2.0, 40.0);
           //gui.add(controls, 'key_max_rotation',0.2 , 1.0);
           var song = gui.add(controls, "song", songsToFiles);
-          const colorMaps = {
-            "Alexander Scriabin": "scriabin",
-            "Olivier Messiaen": "messiaen",
-            "Mr. Mars": "mars",
-            Primitive: "primitive",
-          };
-          var map = gui.add(controls, "map", colorMaps);
-
-          const modes = {
-            "Linear Interpolation": "lerp",
-            "Color Gradient": "gradient",
-          };
-          var mode = gui.add(controls, "mode", modes);
-
           song.onChange(function (value) {
             MIDI.Player.stop();
             MIDI.Player.loadFile("midi/" + value, MIDI.Player.start);
+          });
+
+          var map = gui
+            .add(controls, "map", {
+              "Alexander Scriabin": "scriabin",
+              "Olivier Messiaen": "messiaen",
+              "Mr. Mars": "mars",
+              Primitive: "primitive",
+            })
+            .name("Color Map");
+
+          var mode = gui
+            .add(controls, "mode", {
+              "Linear Interpolation": "lerp",
+              Gradient: "gradient",
+            })
+            .name("Color Display");
+
+          var instrument = gui
+            .add(controls, "instrument", {
+              "Grand Piano": "grandpiano",
+              "AM Synth": "amsynth",
+              "FM Synth": "fmsynth",
+              "Duo Synth": "duosynth",
+              "Pluck Synth": "plucksynth",
+            })
+            .name("Instrument");
+          instrument.onChange(function (value) {
+            tone.disconnect();
+            if (value === "grandpiano") {
+              tone = piano;
+            }
+            if (value === "amsynth") {
+              tone = new Tone.PolySynth(Tone.AMSynth, 6).toDestination();
+            }
+            if (value === "fmsynth") {
+              tone = new Tone.PolySynth(Tone.FMSynth, 6).toDestination();
+            }
+            if (value === "duosynth") {
+              tone = new Tone.PolySynth(Tone.DuoSynth, 6).toDestination();
+            }
+            if (value === "plucksynth") {
+              tone = new Tone.PolySynth(Tone.PluckSynth, 6).toDestination();
+            }
+            tone.connect(chorus);
+            tone.connect(reverb);
+            tone.connect(phaser);
+            tone.connect(vibrato);
+          });
+
+          var chorusEffect = gui
+            .add(controls, "chorusAmount", 0, 5)
+            .step(1)
+            .name("Chorus");
+          chorusEffect.onChange(function (value) {
+            if (value > 0) {
+              chorus.wet.value = 1;
+              chorus.frequency.value = controls.chorusAmount;
+            } else {
+              chorus.wet.value = 0;
+            }
+          });
+
+          var reverbEffect = gui
+            .add(controls, "reverbAmount", 0, 10)
+            .step(2)
+            .name("Reverb");
+          reverbEffect.onChange(function (value) {
+            if (value > 0) {
+              reverb.wet.value = 1;
+              reverb.decay = controls.reverbAmount;
+            } else {
+              reverb.wet.value = 0;
+            }
+          });
+
+          var phaserEffect = gui
+            .add(controls, "phaserAmount", 0, 20)
+            .step(2)
+            .name("Phaser");
+          phaserEffect.onChange(function (value) {
+            if (value > 0) {
+              phaser.wet.value = 1;
+              phaser.frequency.value = controls.phaserAmount;
+            } else {
+              phaser.wet.value = 0;
+            }
+          });
+
+          var vibratoEffect = gui
+            .add(controls, "vibratoAmount", 0, 20)
+            .step(2)
+            .name("Vibrato");
+          vibratoEffect.onChange(function (value) {
+            if (value > 0) {
+              vibrato.wet.value = 1;
+              vibrato.frequency.value = controls.vibratoAmount;
+            } else {
+              vibrato.wet.value = 0;
+            }
           });
 
           // make sure to remove any key pressed when changing the octave
