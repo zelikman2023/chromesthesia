@@ -128,30 +128,52 @@
         onload: () => {
           console.log("Loaded piano!");
         },
-      }).toDestination();
+      });
 
       var tone = piano;
-      var chorus = new Tone.Chorus(0.001).toDestination().start();
-      var reverb = new Tone.Reverb(0.001).toDestination();
-      var phaser = new Tone.Phaser(0.001).toDestination();
-      var vibrato = new Tone.Vibrato(0.001).toDestination();
-      tone.connect(chorus);
-      tone.connect(reverb);
-      tone.connect(phaser);
-      tone.connect(vibrato);
+
+      var chorus = new Tone.Chorus(0.001).start();
+      chorus.wet.value = 0;
+
+      var reverb = new Tone.Reverb(1);
+      reverb.wet.value = 0;
+
+      var phaser = new Tone.Phaser(0.001);
+      phaser.wet.value = 0;
+
+      var vibrato = new Tone.Vibrato(0.001);
+      vibrato.wet.value = 0;
+
+      var volume = new Tone.Volume(0);
+
+      const initializeEffects = () => {
+        tone.chain(reverb, chorus, phaser, vibrato, volume, Tone.Master);
+      };
+      initializeEffects();
+
+      var timeSinceChange = 0;
+      var colorSum = new THREE.Color();
 
       var controls = new (function () {
         this.key_attack_time = 9.0;
         this.key_max_rotation = 0.72;
-        this.octave = 2;
-        this.map = "scriabin";
-        this.song = "game_of_thrones.mid";
-        this.mode = "lerp";
+        // Sound Settings
         this.instrument = "grandpiano";
-        this.chorusAmount = 0;
+        this.sustain = false;
+        this.octave = 2;
+        this.volume = 100;
+        // Sound Effects
         this.reverbAmount = 0;
+        this.chorusAmount = 0;
         this.phaserAmount = 0;
         this.vibratoAmount = 0;
+        // Color Effects
+        this.colorize = true;
+        this.colorDelay = 0;
+        this.map = "scriabin";
+        // MIDI Settings
+        this.song = "game_of_thrones.mid";
+        this.mode = "lerp";
         this.play = function () {
           MIDI.Player.resume();
         };
@@ -191,16 +213,76 @@
       document.body.appendChild(renderer.domElement);
 
       var material = new THREE.MeshLambertMaterial({ color: 0x606060 });
+      document.body.style.background = "#000";
 
-      floor = new THREE.Mesh(
-        new THREE.PlaneGeometry(8000, 8000),
-        new THREE.MeshBasicMaterial({ color: 0xf0f0f0 })
+      // Create spotlight
+      function createSpotlight(color) {
+        const newObj = new THREE.SpotLight(color, 2);
+        newObj.castShadow = true;
+        newObj.angle = 0.3;
+        newObj.penumbra = 0.2;
+        newObj.decay = 2;
+        newObj.distance = 50;
+        return newObj;
+      }
+
+      // Get a random element from array
+      function get_random_elem(list) {
+        return list[Math.floor(Math.random() * list.length)];
+      }
+
+      // Get random float
+      function getRandomArbitrary(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+
+      // Change background color based on key pressed
+      function changeBackgroundColor(note) {
+        const hexcode = keyCode_to_color(note - 21);
+        // Single color
+        document.body.style.background = "";
+        document.body.style.backgroundColor = hexcode;
+
+        // Multiple colors
+        if (Object.keys(keys_down).length > 1) {
+          let gradient = get_random_elem([
+            "radial-gradient(circle, ",
+            "conic-gradient(",
+          ]);
+          let firstColor = [Object.keys(keys_down)[0], false];
+          if (gradient == "conic-gradient(") {
+            firstColor[1] = true;
+          }
+
+          for (let key in keys_down) {
+            const note = keyCode_to_note(key).substring(1);
+            const color = keyCode_to_color(note);
+            gradient += `${color},`;
+          }
+
+          if (firstColor[1]) {
+            const note = keyCode_to_note(firstColor[0]).substring(1);
+            const color = keyCode_to_color(note);
+            gradient += `${color},`;
+          }
+          gradient = gradient.slice(0, -1) + ")";
+
+          document.body.style.background = gradient;
+        }
+      }
+
+      document.addEventListener(
+        "keyup",
+        (event) => {
+          delete keysPressed[event.key];
+          for (let spotlight of spotLights) {
+            scene.remove(spotlight);
+            spotLights.splice(spotLights.indexOf(spotlight), 1);
+          }
+        },
+        false
       );
-      floor.rotation.x = -90 * (Math.PI / 180);
-      floor.position.y = -0.45;
-      floor.receiveShadow = true;
-      floor.castShadow = true;
-      scene.add(floor);
+
       scene.fog = new THREE.Fog(0xffffff, 40, 50);
 
       init_lights();
@@ -209,15 +291,14 @@
 
       loader.load("obj/piano.dae", prepare_scene);
 
-      camera.position.x = -2.77;
-      camera.position.z = 10.04;
-      camera.position.y = 5.51;
+      camera.position.set(6, 3, 10);
+      camera.lookAt(new THREE.Vector3(0, 0, 0));
 
       var cameraControls = new THREE.OrbitAndPanControls(
         camera,
         renderer.domElement
       );
-      cameraControls.target.set(4.5, 0, 0);
+      // cameraControls.target.set(4.5, 0, 0);
 
       var clock = new THREE.Clock();
 
@@ -269,6 +350,7 @@
         obj.rotation.x = -Math.PI / 4.0;
         obj.rotation.y = 0;
         obj.rotation.z = 0;
+
         obj.keyState = keyState.unpressed;
         obj.clock = new THREE.Clock(false);
         obj.castShadow = true;
@@ -301,7 +383,6 @@
         var delta = clock.getDelta();
 
         update(delta);
-
         render(delta);
       }
       function update_key(obj, delta) {
@@ -319,12 +400,13 @@
             obj.keyState = keyState.pressed;
             obj.clock.elapsedTime = 0;
           }
-          const note = parseInt(obj.name.substring(1));
-          const hexcode = keyCode_to_color(note);
-          const color = new THREE.Color(hexcode);
-          obj.material.color = color;
-          if (controls.mode === "lerp") {
-            floor.material.color.lerp(color, obj.clock.elapsedTime);
+          if (controls.colorize) {
+            const note = parseInt(obj.name.substring(1));
+            const hexcode = keyCode_to_color(note);
+            const color = new THREE.Color(hexcode);
+            obj.material.color = color;
+            changeBackgroundColor(note + 21);
+            changeSpotlight(note + 21);
           }
         } else if (obj.keyState == keyState.note_off) {
           obj.rotation.x = mix(
@@ -345,6 +427,7 @@
       }
 
       function update(delta) {
+        timeSinceChange += delta;
         cameraControls.update(delta);
         for (i in keys_obj) {
           update_key(keys_obj[i], delta);
@@ -470,25 +553,73 @@
         }
         return colorMap[note % 12];
       }
+      let keysPressed = {};
 
       const pressedKeys = (obj) =>
         Object.keys(obj)
           .filter((x) => !!obj[x])
           .map((x) => parseInt(x));
 
+      // Change spotlight
+      let spotLights = [];
+
+      function invertColor(color) {
+        return (
+          "#" +
+          (
+            "000000" +
+            (0xffffff ^ parseInt(color.substring(1), 16)).toString(16)
+          ).slice(-6)
+        );
+      }
+      function changeSpotlight(note) {
+        const hexcode = keyCode_to_color(note - 21);
+        const invColor = invertColor(hexcode);
+        const spotLight = createSpotlight(invColor);
+
+        let x = getRandomArbitrary(-5, 5);
+        let y = getRandomArbitrary(-5, 5);
+        let z = getRandomArbitrary(-5, 5);
+
+        spotLight.position.set(x, y, z);
+
+        let lightHelper = new THREE.SpotLightHelper(spotLight);
+
+        scene.add(spotLight);
+        scene.add(lightHelper);
+        // Add to array to remove later
+        spotLights.push(spotLight);
+        spotLights.push(lightHelper);
+      }
       const keysToColors = (keys) => keys.map((x) => keyCode_to_color(x));
 
       window.onkeydown = function (ev) {
+        // changeSpotlight(ev);
+
+        // If key isn't pressed down
         if (keys_down[ev.keyCode] != true) {
+          // Convert key to note
           var note = keyCode_to_note(ev.keyCode);
+          // If note exists
           if (note != -1) {
+            // Update note status
             key_status(note, keyState.note_on);
             keys_down[ev.keyCode] = true;
+            // Play note
             var delay = 0; // play one note every quarter second
             var note = parseInt(note.substr(1)) + 21; // the MIDI note
             var velocity = 127; // how hard the note hits
+            // Convert note to frequency
             const freq = Tone.Frequency(note, "midi").toFrequency();
-            tone.triggerAttack(freq);
+            // Trigger attack based on sustain/instrument
+            if (!controls.sustain || controls.instrument !== "grandpiano") {
+              tone.triggerAttack(freq);
+            } else {
+              tone.triggerAttackRelease(freq, 2.5 + controls.reverbAmount);
+            }
+            // Change background color
+            // Change key color
+            // changeBackgroundColor(note);
           }
         }
       };
@@ -497,13 +628,16 @@
         if (keys_down[ev.keyCode] == true) {
           var note = keyCode_to_note(ev.keyCode);
           key_status(note, keyState.note_off);
-          keys_down[ev.keyCode] = false;
+          delete keys_down[ev.keyCode];
+          // keys_down[ev.keyCode] = false;
 
           var delay = 0; // play one note every quarter second
           var note = parseInt(note.substr(1)) + 21;
           var velocity = 127; // how hard the note hits
           const freq = Tone.Frequency(note, "midi").toFrequency();
-          tone.triggerRelease(freq);
+          if (!controls.sustain || controls.instrument !== "grandpiano") {
+            tone.triggerRelease(freq);
+          }
           // MIDI.setVolume(0, 127);
           // MIDI.noteOff(0, note, delay + 0.08);
         }
@@ -526,7 +660,165 @@
 
           // Close the MIDI loader widget and open the GUI
           MIDI.loader.stop();
-          songsToFiles = {
+          var gui = new dat.GUI({ width: 500 });
+          // gui.add(controls, "key_attack_time", 2.0, 40.0);
+          //gui.add(controls, 'key_max_rotation',0.2 , 1.0);
+
+          const soundFolder = gui.addFolder("Sound Settings");
+          soundFolder.open();
+
+          // Add instrument
+          var instrument = soundFolder
+            .add(controls, "instrument", {
+              "Grand Piano": "grandpiano",
+              "AM Synth": "amsynth",
+              "FM Synth": "fmsynth",
+              "Duo Synth": "duosynth",
+              "Pluck Synth": "plucksynth",
+            })
+            .name("Instrument");
+
+          // Reset instrument on change
+          instrument.onChange(function (value) {
+            tone.releaseAll();
+            tone.disconnect();
+            if (value === "grandpiano") {
+              tone = piano;
+            }
+            if (value === "amsynth") {
+              tone = new Tone.PolySynth(Tone.AMSynth, 6);
+            }
+            if (value === "fmsynth") {
+              tone = new Tone.PolySynth(Tone.FMSynth, 6);
+            }
+            if (value === "duosynth") {
+              tone = new Tone.PolySynth(Tone.DuoSynth, 1);
+            }
+            if (value === "plucksynth") {
+              tone = new Tone.PolySynth(Tone.PluckSynth, 6);
+            }
+            initializeEffects();
+          });
+
+          var shouldSustain = soundFolder
+            .add(controls, "sustain")
+            .name("Sustain");
+          shouldSustain.onChange((value) => {
+            tone.releaseAll();
+            if (!value && !!controls.reverbAmount) reverbEffect.setValue(0);
+          });
+
+          var octave = soundFolder
+            .add(controls, "octave", 0, 4)
+            .step(1)
+            .name("Octave");
+          octave.onChange((value) => {
+            for (keyCode in keys_down) {
+              var note = keyCode_to_note(keyCode);
+              key_status(note, keyState.note_off);
+            }
+          });
+
+          var volumeControl = soundFolder
+            .add(controls, "volume", 0, 100)
+            .step(1)
+            .name("Volume");
+          volumeControl.onChange((value) => {
+            volume.volume.value = value / 2 - 50;
+            volume.mute = !value;
+          });
+
+          // Add effect folder
+          const effectFolder = gui.addFolder("Sound Effects");
+          effectFolder.open();
+
+          // Add reverb effect
+          var reverbEffect = effectFolder
+            .add(controls, "reverbAmount", 0, 10)
+            .step(2)
+            .name("Reverb");
+          reverbEffect.onChange((value) => {
+            if (value > 0) {
+              if (!controls.sustain) shouldSustain.setValue(true);
+              reverb.decay = controls.reverbAmount;
+            }
+            reverb.wet.value = !!value ? 1 : 0;
+          });
+
+          // Add chorus effect
+          var chorusEffect = effectFolder
+            .add(controls, "chorusAmount", 0, 5)
+            .step(1)
+            .name("Chorus");
+          chorusEffect.onChange((value) => {
+            if (value > 0) {
+              chorus.frequency.value = controls.chorusAmount;
+            }
+            chorus.wet.value = !!value ? 1 : 0;
+          });
+
+          // Add phaser effect
+          var phaserEffect = effectFolder
+            .add(controls, "phaserAmount", 0, 20)
+            .step(2)
+            .name("Phaser");
+          phaserEffect.onChange((value) => {
+            if (value > 0) {
+              phaser.frequency.value = controls.phaserAmount;
+            }
+            phaser.wet.value = !!value ? 1 : 0;
+          });
+
+          // Add vibrato effect
+          var vibratoEffect = effectFolder
+            .add(controls, "vibratoAmount", 0, 20)
+            .step(2)
+            .name("Vibrato");
+          vibratoEffect.onChange((value) => {
+            if (value > 0) {
+              vibrato.frequency.value = controls.vibratoAmount;
+            }
+            vibrato.wet.value = !!value ? 1 : 0;
+          });
+
+          // Add folder for color settings
+          const colorFolder = gui.addFolder("Color Settings");
+          colorFolder.open();
+
+          var showColor = colorFolder
+            .add(controls, "colorize")
+            .name("Show Color")
+            .onChange(() => {
+              // floor.material.color = new THREE.Color(0xffffff);
+            });
+
+          var colorDelay = colorFolder
+            .add(controls, "colorDelay", 0.0, 2.0)
+            .step(0.1)
+            .name("Delay Between Colors");
+
+          var map = colorFolder
+            .add(controls, "map", {
+              "Alexander Scriabin": "scriabin",
+              "Olivier Messiaen": "messiaen",
+              "Mr. Mars": "mars",
+              Primitive: "primitive",
+            })
+            .name("Color Map");
+
+          var mode = gui
+            .add(controls, "mode", {
+              "Linear Interpolation": "lerp",
+              Gradient: "gradient",
+            })
+            .name("Color Display");
+
+          // Folder for MIDI controls
+          const midiFolder = gui.addFolder("MIDI Settings");
+          midiFolder.open();
+
+          // Pick MIDI songs
+          var song = midiFolder.add(controls, "song", {
             "Game Of Thrones Theme, Ramin Djawadi": "game_of_thrones.mid",
             "Mario Overworld Theme (Super Mario Bros 3), Koji Kondo":
               "mario_-_overworld_theme.mid",
@@ -553,127 +845,14 @@
             "Polonaise Ab major, Opus 53, Chopin": "chpn_op53.mid",
             "No. 2 - Oriental, Granados": "gra_esp_2.mid",
             "Bohemian Rhapsody, Queen": "bohemian1.mid",
-          };
-          var gui = new dat.GUI({ width: 625 });
-          // gui.add(controls, "key_attack_time", 2.0, 40.0);
-          //gui.add(controls, 'key_max_rotation',0.2 , 1.0);
-          var song = gui.add(controls, "song", songsToFiles);
+          });
           song.onChange(function (value) {
             MIDI.Player.stop();
             MIDI.Player.loadFile("midi/" + value, MIDI.Player.start);
           });
-
-          var map = gui
-            .add(controls, "map", {
-              "Alexander Scriabin": "scriabin",
-              "Olivier Messiaen": "messiaen",
-              "Mr. Mars": "mars",
-              Primitive: "primitive",
-            })
-            .name("Color Map");
-
-          var mode = gui
-            .add(controls, "mode", {
-              "Linear Interpolation": "lerp",
-              Gradient: "gradient",
-            })
-            .name("Color Display");
-
-          var instrument = gui
-            .add(controls, "instrument", {
-              "Grand Piano": "grandpiano",
-              "AM Synth": "amsynth",
-              "FM Synth": "fmsynth",
-              "Duo Synth": "duosynth",
-              "Pluck Synth": "plucksynth",
-            })
-            .name("Instrument");
-          instrument.onChange(function (value) {
-            tone.disconnect();
-            if (value === "grandpiano") {
-              tone = piano;
-            }
-            if (value === "amsynth") {
-              tone = new Tone.PolySynth(Tone.AMSynth, 6).toDestination();
-            }
-            if (value === "fmsynth") {
-              tone = new Tone.PolySynth(Tone.FMSynth, 6).toDestination();
-            }
-            if (value === "duosynth") {
-              tone = new Tone.PolySynth(Tone.DuoSynth, 6).toDestination();
-            }
-            if (value === "plucksynth") {
-              tone = new Tone.PolySynth(Tone.PluckSynth, 6).toDestination();
-            }
-            tone.connect(chorus);
-            tone.connect(reverb);
-            tone.connect(phaser);
-            tone.connect(vibrato);
-          });
-
-          var chorusEffect = gui
-            .add(controls, "chorusAmount", 0, 5)
-            .step(1)
-            .name("Chorus");
-          chorusEffect.onChange(function (value) {
-            if (value > 0) {
-              chorus.wet.value = 1;
-              chorus.frequency.value = controls.chorusAmount;
-            } else {
-              chorus.wet.value = 0;
-            }
-          });
-
-          var reverbEffect = gui
-            .add(controls, "reverbAmount", 0, 10)
-            .step(2)
-            .name("Reverb");
-          reverbEffect.onChange(function (value) {
-            if (value > 0) {
-              reverb.wet.value = 1;
-              reverb.decay = controls.reverbAmount;
-            } else {
-              reverb.wet.value = 0;
-            }
-          });
-
-          var phaserEffect = gui
-            .add(controls, "phaserAmount", 0, 20)
-            .step(2)
-            .name("Phaser");
-          phaserEffect.onChange(function (value) {
-            if (value > 0) {
-              phaser.wet.value = 1;
-              phaser.frequency.value = controls.phaserAmount;
-            } else {
-              phaser.wet.value = 0;
-            }
-          });
-
-          var vibratoEffect = gui
-            .add(controls, "vibratoAmount", 0, 20)
-            .step(2)
-            .name("Vibrato");
-          vibratoEffect.onChange(function (value) {
-            if (value > 0) {
-              vibrato.wet.value = 1;
-              vibrato.frequency.value = controls.vibratoAmount;
-            } else {
-              vibrato.wet.value = 0;
-            }
-          });
-
-          // make sure to remove any key pressed when changing the octave
-          var octave = gui.add(controls, "octave", 0, 4).step(1);
-          octave.onChange(function (value) {
-            for (keyCode in keys_down) {
-              var note = keyCode_to_note(keyCode);
-              key_status(note, keyState.note_off);
-            }
-          });
-
-          gui.add(controls, "play");
-          gui.add(controls, "stop");
+          // Play/stop MIDI songs
+          midiFolder.add(controls, "play");
+          midiFolder.add(controls, "stop");
         });
       };
 
