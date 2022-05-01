@@ -2,9 +2,15 @@
 
   <head>
     <title>3D Piano Player (Three.js)</title>
-    <script src="js/three.js"></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
+      integrity="sha512-dLxUelApnYxpLt6K2iomGngnHO83iUvZytA3YjDUCjT0HDOHKXnVYdf3hU4JjM8uEhxf9nD1/ey98U3t2vZ0qQ=="
+      crossorigin="anonymous"
+    ></script>
+    <!-- <script src="js/three.js"></script> -->
 
     <script src="js/OrbitAndPanControls.js"></script>
+    <script src="js/TGALoader.js"></script>
     <script src="js/ColladaLoader.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.58/Tone.js"
       integrity="sha512-QhmI/idBFIq3hd9NsBFF8y6i5ziFjZP1bea5/J7piTjn6duaZ1LPsFuo26nTXeE1l98vOtXdNkHSzxVDmqVneg=="
@@ -156,29 +162,34 @@
       };
       initializeEffects();
 
-      var timeSinceChange = 0;
-      var colorSum = new THREE.Color();
-
-      var controls = new(function () {
+      var controls = new (function () {
         this.key_attack_time = 9.0;
         this.key_max_rotation = 0.72;
         // Sound Settings
+        this.showKeyboard = true;
+        this.orbit = false;
+        this.resetView = function () {
+          camera.position.set(-4, 11, 10);
+          camera.lookAt(new THREE.Vector3(6, 1, -4));
+        };
         this.instrument = "grandpiano";
         this.sustain = false;
         this.octave = 2;
+        this.lastVolume = 100;
         this.volume = 100;
+        this.mute = false;
         // Sound Effects
         this.reverbAmount = 0;
         this.chorusAmount = 0;
         this.phaserAmount = 0;
         this.vibratoAmount = 0;
         // Color Effects
-        this.colorize = true;
-        this.colorDelay = 0;
+        this.showColor = true;
+        this.showSpotlight = false;
         this.map = "scriabin";
         // MIDI Settings
         this.song = "game_of_thrones.mid";
-        this.mode = "lerp";
+        this.colorMode = "single";
         this.play = function () {
           MIDI.Player.resume();
         };
@@ -195,6 +206,7 @@
       });
 
       var scene = new THREE.Scene();
+      scene.background = null;
       var camera = new THREE.PerspectiveCamera(
         30,
         window.innerWidth / window.innerHeight,
@@ -205,10 +217,10 @@
       var keys_down = [];
       var notes_down = [];
       var keys_obj = [];
+      var whiteText = new THREE.MeshPhongMaterial({ color: 0xffffff });
+      var blackText = new THREE.MeshPhongMaterial({ color: 0x000000 });
 
-      var renderer = new THREE.WebGLRenderer({
-        antialias: true
-      });
+      var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.shadowMapEnabled = true;
       renderer.shadowMapSoft = true;
@@ -219,10 +231,8 @@
 
       document.body.appendChild(renderer.domElement);
 
-      var material = new THREE.MeshLambertMaterial({
-        color: 0x606060
-      });
-      document.body.style.background = "#000";
+      var material = new THREE.MeshLambertMaterial({ color: 0x606060 });
+      document.body.style.background = "#fff";
 
       // Create spotlight
       function createSpotlight(color) {
@@ -236,7 +246,7 @@
       }
 
       // Get a random element from array
-      function getRandomElem(list) {
+      function getRandom(list) {
         return list[Math.floor(Math.random() * list.length)];
       }
 
@@ -252,62 +262,63 @@
         document.body.style.background = "";
         document.body.style.backgroundColor = hexcode;
 
-        // Multiple colors
-        if (Object.keys(keys_down).length > 1) {
-          let gradient = getRandomElem([
-            "radial-gradient(circle, ",
-            "conic-gradient(",
-          ]);
-          let firstColor = [Object.keys(keys_down)[0], false];
-          if (gradient == "conic-gradient(") {
-            firstColor[1] = true;
-          }
+        if (controls.colorMode !== "single") {
+          // Multiple colors
+          if (Object.keys(keys_down).length > 1) {
+            let gradient;
+            if (controls.colorMode === "conic") {
+              gradient = "conic-gradient(";
+            }
+            if (controls.colorMode === "radial") {
+              gradient = "radial-gradient(circle, ";
+            }
 
-          for (let key in keys_down) {
-            const note = keyCode_to_note(key).substring(1);
-            const color = keyCode_to_color(note);
-            gradient += `${color},`;
-          }
+            if (controls.colorMode === "random") {
+              gradient = getRandom([
+                "conic-gradient(",
+                "radial-gradient(circle, ",
+              ]);
+            }
 
-          if (firstColor[1]) {
-            const note = keyCode_to_note(firstColor[0]).substring(1);
-            const color = keyCode_to_color(note);
-            gradient += `${color},`;
-          }
-          gradient = gradient.slice(0, -1) + ")";
+            let firstColor = [Object.keys(keys_down)[0], false];
+            if (gradient === "conic-gradient(") {
+              firstColor[1] = true;
+            }
 
-          document.body.style.background = gradient;
+            for (let key in keys_down) {
+              const note = keyCode_to_note(key).substring(1);
+              const color = keyCode_to_color(note);
+              gradient += `${color},`;
+            }
+
+            if (firstColor[1]) {
+              const note = keyCode_to_note(firstColor[0]).substring(1);
+              const color = keyCode_to_color(note);
+              gradient += `${color},`;
+            }
+            gradient = gradient.slice(0, -1) + ")";
+
+            document.body.style.background = gradient;
+          }
         }
       }
 
-      document.addEventListener(
-        "keyup",
-        (event) => {
-          delete keysPressed[event.key];
-          for (let spotlight of spotLights) {
-            scene.remove(spotlight);
-            spotLights.splice(spotLights.indexOf(spotlight), 1);
-          }
-        },
-        false
-      );
-
-      scene.fog = new THREE.Fog(0xffffff, 40, 50);
+      // scene.fog = new THREE.Fog(0xffffff, 40, 50);
 
       init_lights();
 
-      var loader = new THREE.ColladaLoader();
+      var loader = new ColladaLoader();
 
       loader.load("obj/piano.dae", prepare_scene);
 
-      camera.position.set(6, 3, 10);
-      camera.lookAt(new THREE.Vector3(0, 0, 0));
+      camera.position.set(-4, 11, 10);
+      camera.lookAt(new THREE.Vector3(6, 1, -4));
 
       var cameraControls = new THREE.OrbitAndPanControls(
         camera,
         renderer.domElement
       );
-      // cameraControls.target.set(4.5, 0, 0);
+      cameraControls.target.set(4.5, 0, 0);
 
       // Add sphere to scene
       let geometry = new THREE.SphereGeometry( 2, 50, 70 );
@@ -335,10 +346,11 @@
             let normal = p.sub(center);
             normal.normalize();
             normal.multiplyScalar(noise);
-            p.add(normal);
+            p.x += (normal.x);
             sphere.geometry.vertices[vertex] = p;
-          }
-          scene.add(sphere);
+        }
+        
+        scene.add(sphere);
       }
 
       window.addEventListener('keydown', changeSphere, false);
@@ -384,8 +396,45 @@
       }
 
       function prepare_scene(collada) {
+        // Remove current piano if one exists
+        if (scene.piano) scene.remove(scene.piano);
+        // Set custom black and white key colors
+        let blackColor;
+        let whiteColor;
+        if (controls.instrument === "grandpiano") {
+          blackColor = new THREE.Color("#000000");
+          whiteColor = new THREE.Color("#ffffff");
+        }
+        if (controls.instrument === "amsynth") {
+          blackColor = new THREE.Color("#ff0000");
+          whiteColor = new THREE.Color("#c9fbff");
+        }
+        if (controls.instrument === "fmsynth") {
+          blackColor = new THREE.Color("#8f013a");
+          whiteColor = new THREE.Color("#f7d8a1");
+        }
+        if (controls.instrument === "duosynth") {
+          blackColor = new THREE.Color("#8f013a");
+          whiteColor = new THREE.Color("#f2aaeb");
+        }
+        if (controls.instrument === "plucksynth") {
+          blackColor = new THREE.Color("#dedede");
+          whiteColor = new THREE.Color("#bababa");
+        }
+        for (let i = 0; i < 81; i++) {
+          let x = i % 12;
+          if (collada.scene.children[i].material) {
+            if (x == 1 || x == 3 || x == 6 || x == 8 || x == 10) {
+              collada.scene.children[i].material.color = blackColor;
+            } else {
+              collada.scene.children[i].material.color = whiteColor;
+            }
+          }
+        }
         collada.scene.traverse(initialize_keys);
+        scene.piano = collada.scene;
         scene.add(collada.scene);
+        // initialize_tutorial(scene);
       }
 
       function initialize_keys(obj) {
@@ -411,6 +460,192 @@
         }
       }
 
+      // function initialize_tutorial(scene) {
+      //   var loader = new THREE.FontLoader();
+      //   loader.load("fonts/droid_serif_bold.typeface.json", function (font) {
+      //     let textSettings = {
+      //       font: font,
+      //       size: 1.75,
+      //       height: 0.6,
+      //       curveSegments: 4,
+      //       bevelEnabled: true,
+      //       bevelThickness: 0.02,
+      //       bevelSize: 0.05,
+      //       bevelSegments: 3,
+      //     };
+      //     evenKeySpacing();
+      //     let textMat = new THREE.MeshPhongMaterial({ color: 0x000000 });
+      //     let key_offset = 0.29;
+      //     let keyLabels = new THREE.Group();
+      //     let hideableLabels = [];
+      //     let white_keys = [
+      //       "Shift",
+      //       "Z",
+      //       "X",
+      //       "C",
+      //       "V",
+      //       "B",
+      //       "N",
+      //       "M",
+      //       ",",
+      //       ".",
+      //       "/",
+      //       "Tab",
+      //       "Q",
+      //       "W",
+      //       "E",
+      //       "R",
+      //       "T",
+      //       "Y",
+      //       "U",
+      //       "I",
+      //       "O",
+      //       "P",
+      //       "[",
+      //       "]",
+      //       "\\",
+      //     ];
+      //     for (let i = 0; i < white_keys.length; i++) {
+      //       var geometry = new THREE.TextGeometry(white_keys[i], textSettings);
+      //       var mesh = new THREE.Mesh(geometry, textMat);
+      //       mesh.black = false;
+      //       mesh.scale.fromArray([0.1, 0.1, 0.1]);
+      //       mesh.rotation.fromArray([-Math.PI / 2, 0, 0]);
+      //       mesh.position.fromArray([2.22 + key_offset * i, -0.31, 1.2]);
+      //       if (i == 0 || i == 11) {
+      //         mesh.rotateZ(Math.PI / 2);
+      //         mesh.translateX(-0.175);
+      //       } else if (i == 7) {
+      //         mesh.translateX(-0.21);
+      //       } else if (i >= 8 && i <= 10) {
+      //         mesh.translateX(-0.125);
+      //       } else if (i == 19 || i == 24) {
+      //         mesh.translateX(-0.15);
+      //       } else if (i == 13) {
+      //         mesh.translateX(-0.22);
+      //       } else if (i > 13) {
+      //         mesh.translateX(-0.175);
+      //       } else {
+      //         mesh.translateX(-0.175);
+      //       }
+      //       if (i > white_keys.length - 3) {
+      //         hideableLabels.push(mesh);
+      //       }
+      //       keyLabels.add(mesh);
+      //     }
+      //     textSettings.height = 0.1;
+      //     let black_keys = [
+      //       "A",
+      //       "S",
+      //       "D",
+      //       "",
+      //       "G",
+      //       "H",
+      //       "",
+      //       "K",
+      //       "L",
+      //       ";",
+      //       "",
+      //       "1",
+      //       "2",
+      //       "",
+      //       "4",
+      //       "5",
+      //       "6",
+      //       "",
+      //       "8",
+      //       "9",
+      //       "",
+      //       "-",
+      //       "=",
+      //       "bksp",
+      //     ];
+      //     for (let i = 0; i < black_keys.length; i++) {
+      //       if (!black_keys[i]) {
+      //         continue;
+      //       }
+      //       var geometry = new THREE.TextGeometry(black_keys[i], textSettings);
+      //       var mesh = new THREE.Mesh(geometry, whiteText);
+      //       mesh.black = true;
+      //       mesh.scale.fromArray([0.1, 0.1, 0.1]);
+      //       mesh.rotation.fromArray([-Math.PI / 2, 0, 0]);
+      //       mesh.position.fromArray([2.2 + key_offset * i, -0.125, -0.6]);
+      //       if (i == 9) mesh.translateX(0.05);
+      //       keyLabels.add(mesh);
+      //       if (i > black_keys.length - 3) {
+      //         hideableLabels.push(mesh);
+      //       }
+      //     }
+      //     geometry = new THREE.TextGeometry(
+      //       "Toggle Octave: CapsLock",
+      //       textSettings
+      //     );
+      //     mesh = new THREE.Mesh(geometry, whiteText);
+      //     mesh.black = true;
+      //     mesh.scale.fromArray([0.1, 0.1, 0.1]);
+      //     mesh.rotation.fromArray([-Math.PI / 2, 0, 0]);
+      //     mesh.position.fromArray([4.4, -0.4, 1.75]);
+      //     keyLabels.add(mesh);
+      //     scene.add(keyLabels);
+      //     keyLabels.hideable = hideableLabels;
+      //     scene.keyLabels = keyLabels;
+      //   });
+      // }
+
+      // function evenKeySpacing() {
+      //   const keySpace = 29;
+      //   const xCenter = 0;
+      //   let numWhite = 0;
+      //   let numBlack = 0;
+      //   for (let i = 0; i < keys_obj.length - 2; i++) {
+      //     let mod = i % 12;
+      //     if (mod == 1 || mod == 3 || mod == 6 || mod == 8 || mod == 10) {
+      //       scene.getObjectByName("_" + i, true).position.x =
+      //         xCenter - 62 + keySpace * numBlack;
+      //       numBlack++;
+      //       if (mod == 3 || mod == 10) {
+      //         numBlack++;
+      //       }
+      //     } else {
+      //       scene.getObjectByName("_" + i, true).position.x =
+      //         xCenter - 77 + keySpace * numWhite;
+      //       numWhite++;
+      //     }
+      //   }
+      // }
+
+      // function moveKeyLabels() {
+      //   let h = scene.keyLabels.hideable;
+      //   if (controls.tutorial) {
+      //     for (let key of scene.keyLabels.children) {
+      //       //console.log(key.black, scene.floor.visible);
+      //       /*
+      //       if (key.black && !scene.floor.visible){
+      //           key.material = whiteText;
+      //           //console.log("blackKey");
+      //       } else
+      //       key.material = blackText;
+      //       */
+      //       key.visible = true;
+      //     }
+      //     if (controls.octave == 3) {
+      //       //console.log(h);
+      //       for (let key of h) {
+      //         key.visible = false;
+      //       }
+      //     }
+      //   } else {
+      //     for (let key of scene.keyLabels.children) {
+      //       key.visible = false;
+      //     }
+      //   }
+      //   scene.keyLabels.position.fromArray([
+      //     2.03 * (controls.octave - 1),
+      //     0,
+      //     0,
+      //   ]);
+      // }
+
       function key_status(keyName, status) {
         var obj = scene.getObjectByName(keyName, true);
         if (obj != undefined) {
@@ -419,6 +654,31 @@
           obj.keyState = status;
         }
       }
+      // const updateOctave = (ev) => {
+      //   if (ev.key == "CapsLock") {
+      //     if (ev.type == "keydown") {
+      //       controls.octave = 2;
+      //     } else {
+      //       controls.octave = 1;
+      //     }
+      //     if (ev.key == "CapsLock") {
+      //       let trollers = controls.gui.__controllers;
+      //       for (let c of trollers) {
+      //         if (c.property == "octave") {
+      //           c.setValue(controls.octave);
+      //         }
+      //       }
+      //     }
+      //     //console.log('octave');
+      //     if (controls.tutorial) {
+      //       moveKeyLabels();
+      //     }
+      //     releaseKeys();
+      //     return true;
+      //   }
+      //   return false;
+      //   //console.log(controls.key_color_scheme);
+      // };
 
       function frame() {
         requestAnimationFrame(frame);
@@ -444,14 +704,12 @@
             obj.keyState = keyState.pressed;
             obj.clock.elapsedTime = 0;
           }
-          if (controls.colorize) {
-            const note = parseInt(obj.name.substring(1));
-            const hexcode = keyCode_to_color(note);
-            const color = new THREE.Color(hexcode);
-            obj.material.color = color;
-            changeBackgroundColor(note + 21);
-            changeSpotlight(note + 21);
-          }
+          const note = parseInt(obj.name.substring(1));
+          const hexcode = keyCode_to_color(note);
+          const color = new THREE.Color(hexcode);
+          obj.material.color = color;
+          if (controls.showColor) changeBackgroundColor(note + 21);
+          if (controls.showSpotlight) changeSpotlight(note + 21);
         } else if (obj.keyState == keyState.note_off) {
           obj.rotation.x = mix(
             -controls.key_max_rotation,
@@ -471,7 +729,6 @@
       }
 
       function update(delta) {
-        timeSinceChange += delta;
         cameraControls.update(delta);
         for (i in keys_obj) {
           update_key(keys_obj[i], delta);
@@ -598,7 +855,6 @@
         }
         return colorMap[note % 12];
       }
-      let keysPressed = {};
 
       const pressedKeys = (obj) =>
         Object.keys(obj)
@@ -623,15 +879,15 @@
         const invColor = invertColor(hexcode);
         const spotLight = createSpotlight(invColor);
 
-        let x = getRandomArbitrary(-5, 5);
-        let y = getRandomArbitrary(-5, 5);
-        let z = getRandomArbitrary(-5, 5);
+        let x = getRandomArbitrary(0, 20);
+        let y = getRandomArbitrary(5, 5);
+        let z = getRandomArbitrary(0, 20);
 
         spotLight.position.set(x, y, z);
 
         let lightHelper = new THREE.SpotLightHelper(spotLight);
 
-        scene.add(spotLight);
+        // scene.add(spotLight);
         scene.add(lightHelper);
         // Add to array to remove later
         spotLights.push(spotLight);
@@ -640,8 +896,6 @@
       const keysToColors = (keys) => keys.map((x) => keyCode_to_color(x));
 
       window.onkeydown = function (ev) {
-        // changeSpotlight(ev);
-
         // If key isn't pressed down
         if (keys_down[ev.keyCode] != true) {
           // Convert key to note
@@ -675,7 +929,6 @@
           var note = keyCode_to_note(ev.keyCode);
           key_status(note, keyState.note_off);
           delete keys_down[ev.keyCode];
-          // keys_down[ev.keyCode] = false;
 
           var delay = 0; // play one note every quarter second
           var note = parseInt(note.substr(1)) + 21;
@@ -684,6 +937,11 @@
           if (!controls.sustain || controls.instrument !== "grandpiano") {
             tone.triggerRelease(freq);
           }
+          // Remove spotlights
+          for (let spotlight of spotLights) {
+            scene.remove(spotlight);
+          }
+          spotLights = [];
           // MIDI.setVolume(0, 127);
           // MIDI.noteOff(0, note, delay + 0.08);
         }
@@ -706,11 +964,28 @@
 
           // Close the MIDI loader widget and open the GUI
           MIDI.loader.stop();
-          var gui = new dat.GUI({
-            width: 500
-          });
+          var gui = new dat.GUI({ width: 300 });
           // gui.add(controls, "key_attack_time", 2.0, 40.0);
           //gui.add(controls, 'key_max_rotation',0.2 , 1.0);
+
+          const cameraFolder = gui.addFolder("Camera Settings");
+          cameraFolder.open();
+
+          var showKeyboard = cameraFolder
+            .add(controls, "showKeyboard")
+            .name("Show Keyboard");
+          showKeyboard.onChange((value) => {
+            scene.piano.visible = value;
+          });
+
+          var orbit = cameraFolder.add(controls, "orbit").name("Orbit Camera");
+          orbit.onChange((value) => {
+            cameraControls.autoRotate = value;
+          });
+
+          var resetView = cameraFolder
+            .add(controls, "resetView")
+            .name("Reset Camera");
 
           const soundFolder = gui.addFolder("Sound Settings");
           soundFolder.open();
@@ -746,6 +1021,41 @@
               tone = new Tone.PolySynth(Tone.PluckSynth, 6);
             }
             initializeEffects();
+            // Change keyboard
+            let blackColor;
+            let whiteColor;
+            if (value === "grandpiano") {
+              blackColor = new THREE.Color("#000000");
+              whiteColor = new THREE.Color("#ffffff");
+            }
+            if (value === "amsynth") {
+              blackColor = new THREE.Color("#ff0000");
+              whiteColor = new THREE.Color("#c9fbff");
+            }
+            if (value === "fmsynth") {
+              blackColor = new THREE.Color("#8f013a");
+              whiteColor = new THREE.Color("#f7d8a1");
+            }
+            if (value === "duosynth") {
+              blackColor = new THREE.Color("#8f013a");
+              whiteColor = new THREE.Color("#61ff8e");
+            }
+            if (value === "plucksynth") {
+              blackColor = new THREE.Color("#382301");
+              whiteColor = new THREE.Color("#b09364");
+            }
+            for (let i = 0; i < 81; i++) {
+              let x = i % 12;
+              if (scene.piano.children[i].material) {
+                if (x == 1 || x == 3 || x == 6 || x == 8 || x == 10) {
+                  scene.piano.children[i].material.color = blackColor;
+                } else {
+                  scene.piano.children[i].material.color = whiteColor;
+                }
+              }
+            }
+            // initialize_keys(obj);
+            loader.load("obj/piano.dae", prepare_scene);
           });
 
           var shouldSustain = soundFolder
@@ -765,6 +1075,8 @@
               var note = keyCode_to_note(keyCode);
               key_status(note, keyState.note_off);
             }
+            // updateOctave(value);
+            // moveKeyLabels();
           });
 
           var volumeControl = soundFolder
@@ -776,55 +1088,66 @@
             volume.mute = !value;
           });
 
+          var mute = soundFolder.add(controls, "mute").name("Mute");
+          mute.onChange((value) => {
+            if (value) {
+              lastVolume = controls.volume;
+              volumeControl.setValue(0);
+              volume.mute = true;
+            } else {
+              volumeControl.setValue(lastVolume);
+            }
+          });
+
           // Add effect folder
           const effectFolder = gui.addFolder("Sound Effects");
           effectFolder.open();
 
           // Add reverb effect
           var reverbEffect = effectFolder
-            .add(controls, "reverbAmount", 0, 10)
-            .step(2)
+            .add(controls, "reverbAmount", 0, 100)
+            .step(1)
             .name("Reverb");
           reverbEffect.onChange((value) => {
             if (value > 0) {
               if (!controls.sustain) shouldSustain.setValue(true);
-              reverb.decay = controls.reverbAmount;
+              reverb.decay = controls.reverbAmount / 10;
             }
             reverb.wet.value = !!value ? 1 : 0;
           });
 
           // Add chorus effect
           var chorusEffect = effectFolder
-            .add(controls, "chorusAmount", 0, 5)
+            .add(controls, "chorusAmount", 0, 100)
             .step(1)
             .name("Chorus");
           chorusEffect.onChange((value) => {
             if (value > 0) {
-              chorus.frequency.value = controls.chorusAmount;
+              chorus.frequency.value = controls.chorusAmount / 100;
             }
             chorus.wet.value = !!value ? 1 : 0;
           });
 
           // Add phaser effect
           var phaserEffect = effectFolder
-            .add(controls, "phaserAmount", 0, 20)
-            .step(2)
+            .add(controls, "phaserAmount", 0, 100)
+            .step(1)
             .name("Phaser");
           phaserEffect.onChange((value) => {
             if (value > 0) {
-              phaser.frequency.value = controls.phaserAmount;
+              phaser.frequency.value = controls.phaserAmount / 100;
             }
             phaser.wet.value = !!value ? 1 : 0;
           });
 
           // Add vibrato effect
           var vibratoEffect = effectFolder
-            .add(controls, "vibratoAmount", 0, 20)
+            .add(controls, "vibratoAmount", 0, 100)
             .step(2)
             .name("Vibrato");
           vibratoEffect.onChange((value) => {
             if (value > 0) {
-              vibrato.frequency.value = controls.vibratoAmount;
+              vibrato.frequency.value = controls.vibratoAmount / 100;
             }
             vibrato.wet.value = !!value ? 1 : 0;
           });
@@ -834,16 +1157,24 @@
           colorFolder.open();
 
           var showColor = colorFolder
-            .add(controls, "colorize")
+            .add(controls, "showColor")
             .name("Show Color")
             .onChange(() => {
-              // floor.material.color = new THREE.Color(0xffffff);
+              document.body.style.backgroundColor = "";
             });
 
-          var colorDelay = colorFolder
-            .add(controls, "colorDelay", 0.0, 2.0)
-            .step(0.1)
-            .name("Delay Between Colors");
+          var showSpotlight = colorFolder
+            .add(controls, "showSpotlight")
+            .name("Show Spotlight");
+
+          var mode = colorFolder
+            .add(controls, "colorMode", {
+              "Single Color": "single",
+              "Radial Gradient": "radial",
+              "Conic Gradient": "conic",
+              "Random Gradient": "random",
+            })
+            .name("Color Display");
 
           var map = colorFolder
             .add(controls, "map", {
@@ -853,13 +1184,6 @@
               Primitive: "primitive",
             })
             .name("Color Map");
-
-          var mode = gui
-            .add(controls, "mode", {
-              "Linear Interpolation": "lerp",
-              Gradient: "gradient",
-            })
-            .name("Color Display");
 
           // Folder for MIDI controls
           const midiFolder = gui.addFolder("MIDI Settings");
@@ -927,13 +1251,18 @@
     <div id="info">
       <a href="http://threejs.org" target="_blank">three.js</a> - 3D Piano
       player demo<br />
-      Controls: Keyboard to play, Mouse to orbit<br />
-      Uses <a href="http://mudcu.be/midi-js/" target="_blank">MIDI.js</a> Source
-      code available on
-      <a href="https://github.com/reality3d/3d-piano-player" target="_blank">Github</a><br />
-      <a href="http://www.twitter.com/reality3d/" target="_blank">Borja Morales</a>
-      <a href="https://twitter.com/share" class="twitter-share-button"
-        data-url="http://www.rgba.org/r3d/3d-piano-player/" data-via="reality3d">Tweet</a>
+      <b>Controls:</b>
+      <br />
+      C = Z
+      <br />
+      Source code available on
+      <a href="https://github.com/zelikman2023/chromesthesia" target="_blank"
+        >Github</a
+      ><br />
+      Adapted from
+      <a href="http://www.twitter.com/reality3d/" target="_blank"
+        >Borja Morales</a
+      >
     </div>
     <script>
       !(function (d, s, id) {
