@@ -23,8 +23,10 @@ const CONTROLS = new (function () {
   // Sphere Settings
   this.showSphere = false;
   this.sphereMaterial = "basic";
-  this.oscillateSphere = false;
+  this.autoSphere = false;
   this.showWave = false;
+  this.waveMaterial = "basic";
+  this.autoWave = false;
   // Sound Effects
   this.volume = 100;
   this.lastVolume = 100;
@@ -36,7 +38,8 @@ const CONTROLS = new (function () {
   this.showColor = true;
   this.gradient = "animated";
   this.showSpotlight = false;
-  this.spotlightDirection = "sphere";
+  this.invertSpotlight = false;
+  this.spotlightDirection = "circle";
   this.map = "rainbow";
   this.vintage = false;
   // Camera Settings
@@ -130,7 +133,7 @@ const CONTROLS = new (function () {
       this.showSphere = false;
       hideAllSpheres();
       this.showWave = false;
-      updateWave();
+      initializeWave();
     }
     // Close Up FM
     if (this.customView === "closeup") {
@@ -159,7 +162,7 @@ const CONTROLS = new (function () {
       this.showSphere = false;
       hideAllSpheres();
       this.showWave = false;
-      updateWave();
+      initializeWave();
     }
     if (this.customView === "nostalgic") {
       // Change Settings
@@ -183,7 +186,7 @@ const CONTROLS = new (function () {
       this.nostalgicView();
       handleInstrument("amsynth");
       this.showWave = false;
-      updateWave();
+      initializeWave();
       showBigSphere();
       this.showKeyboard = true;
       showPiano();
@@ -216,7 +219,7 @@ const CONTROLS = new (function () {
       this.showSphere = false;
       hideAllSpheres();
       this.showWave = true;
-      updateWave();
+      initializeWave();
     }
     initializeEffects();
   };
@@ -256,7 +259,7 @@ const makeGUI = () => {
       }
       if (controls.showWave) {
         showWave.setValue(false);
-        updateWave();
+        initializeWave();
       }
     }
   });
@@ -305,7 +308,6 @@ const makeGUI = () => {
   labels.onChange(moveKeyLabels);
 
   const sphereFolder = gui.addFolder("Sphere");
-  sphereFolder.open();
 
   // Show Sphere
   const showSphere = sphereFolder
@@ -321,7 +323,7 @@ const makeGUI = () => {
       }
       if (controls.showWave) {
         showWave.setValue(false);
-        updateWave();
+        initializeWave();
       }
     }
   });
@@ -331,27 +333,23 @@ const makeGUI = () => {
     .add(controls, "sphereMaterial", {
       Basic: "basic",
       Phong: "phong",
+      Toon: "toon",
       Mesh: "mesh",
     })
     .name("Sphere Material")
     .listen();
 
-  // Oscillate Sphere
-  var oscillateSphere = sphereFolder
-    .add(controls, "oscillateSphere")
-    .name("Oscillate Sphere")
-    .listen();
-  oscillateSphere.onChange((val) =>
-    !!val ? scene.oscClock.start() : scene.oscClock.stop()
-  );
+  sphereFolder.add(controls, "autoSphere").name("Auto Update").listen();
 
-  // Show Sphere
-  var showWave = sphereFolder
+  const waveFolder = gui.addFolder("Wave");
+
+  // Show Wave
+  var showWave = waveFolder
     .add(controls, "showWave")
     .name("Show Wave")
     .listen();
   showWave.onChange((val) => {
-    updateWave();
+    initializeWave();
     if (val) {
       if (controls.showKeyboard) {
         showKeyboard.setValue(false);
@@ -363,6 +361,19 @@ const makeGUI = () => {
       }
     }
   });
+
+  // Wave Material
+  waveFolder
+    .add(controls, "waveMaterial", {
+      Basic: "basic",
+      Phong: "phong",
+      Toon: "toon",
+      Mesh: "mesh",
+    })
+    .name("Wave Material")
+    .onChange(() => initializeWave());
+
+  waveFolder.add(controls, "autoWave").name("Auto Update").listen();
 
   // Add folder for color settings
   const colorFolder = gui.addFolder("Color");
@@ -387,12 +398,14 @@ const makeGUI = () => {
     .listen();
 
   colorFolder.add(controls, "showSpotlight").name("Show Spotlight");
+  colorFolder.add(controls, "invertSpotlight").name("Invert Spotlight");
 
   colorFolder
     .add(controls, "spotlightDirection", {
-      Spherical: "sphere",
-      Conic: "cone",
-      Random: "random",
+      Circle: "circle",
+      Up: "up",
+      Down: "down",
+      All: "random",
     })
     .name("Spotlight Direction")
     .listen();
@@ -401,9 +414,9 @@ const makeGUI = () => {
     .add(controls, "map", {
       Rainbow: "rainbow",
       "Reverse Rainbow": "reverserainbow",
-      "Alexander Scriabin": "scriabin",
-      "Olivier Messiaen": "messiaen",
-      "Mr. Mars": "mars",
+      Scriabin: "scriabin",
+      Messiaen: "messiaen",
+      Mars: "mars",
     })
     .name("Color Map")
     .listen();

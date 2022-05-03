@@ -177,43 +177,46 @@
       var material = new THREE.MeshLambertMaterial({ color: 0x606060 });
 
       scene.cubes = [];
-      updateWave();
+      initializeWave();
 
-      (function drawFrame(ts) {
-        requestAnimationFrame(drawFrame);
+      // Adapted from https://codepen.io/gbnikolov/pen/EaVVZz
+      (function updateWave(ts) {
+        requestAnimationFrame(updateWave);
         renderer.render(scene, camera);
-        scene.cubes.forEach(function (c) {
-          if (controls.chorusAmount > 0) {
-            c.scale.x = 0.2 * Math.cos((controls.chorusAmount / 800) * ts);
-          }
-          c.scale.y =
-            (Math.sin(
-              ts / 240 +
-                c.position.x / 3 +
-                c.position.z / 6 +
-                Math.sin(((controls.phaserAmount / 20) * ts) / 200)
-            ) +
-              1 +
-              (Math.random() * controls.vibratoAmount) / 100) *
-            (1 + controls.reverbAmount / 100);
-          c.scale.z = Math.max(0.1, 0.05 * Math.abs(c.position.x - 5.8));
 
-          const pressedKeys = keys_down
-            .map((x, i) => (!!x ? i : -1))
-            .filter((x) => x > 0);
-          const colors = pressedKeys.map((key) => {
-            const note = keyCode_to_note(key).substring(1);
-            return keyCode_to_color(note);
-          });
-          if (pressedKeys.length > 0) {
+        const pressedKeys = keys_down
+          .map((x, i) => (!!x ? i : -1))
+          .filter((x) => x > 0);
+        const colors = pressedKeys.map((key) => {
+          const note = keyCode_to_note(key).substring(1);
+          return keyCode_to_color(note);
+        });
+
+        if ((!!pressedKeys.length || controls.autoWave) && controls.showWave) {
+          scene.cubes.forEach(function (c) {
+            if (controls.chorusAmount > 0) {
+              c.scale.x = 0.2 * Math.cos((controls.chorusAmount / 800) * ts);
+            }
+            c.scale.y =
+              (Math.sin(
+                ts / 240 +
+                  c.position.x / 3 +
+                  c.position.z / 6 +
+                  Math.sin(((controls.phaserAmount / 20) * ts) / 200)
+              ) +
+                1 +
+                (Math.random() * controls.vibratoAmount) / 100) *
+              (1 + controls.reverbAmount / 100);
+            c.scale.z = Math.max(0.1, 0.05 * Math.abs(c.position.x - 5.8));
+
             c.material.color = new THREE.Color(
               colors[
                 Math.round(ts / 60 + c.position.x / 2 + c.position.z / 2) %
                   colors.length
               ]
             );
-          }
-        });
+          });
+        }
       })();
 
       // Create spotlight
@@ -313,38 +316,6 @@
       cameraControls.maxDistance = 50;
 
       // Add sphere to scene
-
-      const makeSphere = (radius) => {
-        let geometry = new THREE.SphereGeometry(radius, 50, 70);
-
-        let sMaterial;
-
-        if (controls.sphereMaterial === "basic") {
-          sMaterial = new THREE.MeshLambertMaterial({
-            color: 0xccb4e0,
-            opacity: 0.5,
-          });
-        }
-        if (controls.sphereMaterial === "phong") {
-          sMaterial = new THREE.MeshPhongMaterial({
-            color: 0xff0000,
-            specular: 0x0800ff,
-            shininess: 50,
-            flatShading: true,
-          });
-        }
-        if (controls.sphereMaterial === "mesh") {
-          sMaterial = new THREE.MeshBasicMaterial({
-            color: 0x00000,
-            wireframe: true,
-          });
-          geometry = new THREE.SphereGeometry(radius, 30, 30);
-        }
-
-        let sphere = new THREE.Mesh(geometry, sMaterial);
-        sphere.position.set(4.5, 0, 0);
-        return sphere;
-      };
 
       const sphere = makeSphere(5);
       scene.sphere = sphere;
@@ -524,7 +495,7 @@
         renderer.render(scene, camera);
         // Change sphere if pressing note
         const pressedKeys = keys_down.filter((x) => !!x);
-        if (pressedKeys.length > 0) {
+        if (pressedKeys.length > 0 || controls.autoSphere) {
           if (controls.showSphere) {
             updateSphere();
             scene.chorusSphere.visible = controls.chorusAmount > 0;
@@ -567,14 +538,14 @@
       let targetPos = -5;
       function changeSpotlight(note) {
         const hexcode = keyCode_to_color(note - 21);
-        const invColor = invertColor(hexcode);
+        const color = controls.invertSpotlight ? invertColor(hexcode) : hexcode;
 
         // Random spotlights
-        if (controls.spotlightDirection === "sphere") {
-          const spotLight = createSpotlight(invColor);
-          let x = getRandomArbitrary(-5.5, 14.5);
+        if (controls.spotlightDirection === "circle") {
+          const spotLight = createSpotlight(color);
+          let x = getRandomArbitrary(-10, 19);
           let y = getRandomArbitrary(-5, 5);
-          let z = getRandomArbitrary(-10, 10);
+          let z = getRandomArbitrary(-10, 0);
           spotLight.position.set(x, y, z);
           spotLight.target.position.set(4.5, -0.3, 0);
           scene.add(spotLight.target);
@@ -583,12 +554,15 @@
           scene.spotlights.push(lightHelper);
         }
         // Less random spotlights
-        if (controls.spotlightDirection === "cone") {
+        if (
+          controls.spotlightDirection === "up" ||
+          controls.spotlightDirection === "down"
+        ) {
           const vertices = scene.spotlightsCircle.geometry.vertices;
           for (const v of vertices) {
-            let spotLight = createSpotlight(invColor);
-            spotLight.position.set(v.x + 6, v.y - 20, v.z);
-            spotLight.position.x += Math.random() * 2 - 2;
+            let spotLight = createSpotlight(color);
+            const yOffset = controls.spotlightDirection === "up" ? 30 : -30;
+            spotLight.position.set(v.x + 6, v.y + yOffset, v.z - 5);
 
             if (targetPos < 10) {
               spotLight.target.position.set(targetPos, targetPos, targetPos);
@@ -607,7 +581,7 @@
         if (controls.spotlightDirection === "random") {
           const vertices = scene.spotlightsCircle.geometry.vertices;
           for (const v of vertices) {
-            let spotLight = createSpotlight(invColor);
+            let spotLight = createSpotlight(color);
             if (targetPos < 10) {
               spotLight.target.position.set(targetPos, targetPos, targetPos);
               targetPos += 1;

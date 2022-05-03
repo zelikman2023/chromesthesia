@@ -117,15 +117,74 @@ const removeCubes = () => {
   scene.cubes = [];
 };
 
-const updateWave = () => {
+const makeSphere = (radius) => {
+  let geometry = new THREE.SphereGeometry(radius, 50, 70);
+
+  let sMaterial;
+
+  if (controls.sphereMaterial === "basic") {
+    sMaterial = new THREE.MeshLambertMaterial({
+      color: 0xccb4e0,
+      opacity: 0.5,
+    });
+  }
+  if (controls.sphereMaterial === "phong") {
+    sMaterial = new THREE.MeshPhongMaterial({
+      color: 0xff0000,
+      specular: 0x0800ff,
+      shininess: 100,
+      flatShading: true,
+    });
+  }
+  if (controls.sphereMaterial === "toon") {
+    sMaterial = new THREE.MeshToonMaterial({
+      color: 0xccb4e0,
+    });
+  }
+  if (controls.sphereMaterial === "mesh") {
+    sMaterial = new THREE.MeshBasicMaterial({
+      color: 0x00000,
+      wireframe: true,
+    });
+    geometry = new THREE.SphereGeometry(radius, 30, 30);
+  }
+
+  let sphere = new THREE.Mesh(geometry, sMaterial);
+  sphere.position.set(4.5, 0, 0);
+  return sphere;
+};
+
+const initializeWave = () => {
   removeCubes();
   if (!controls.showWave) return;
   for (var x = -30; x <= 30; x += 0.5) {
     for (var y = -4; y <= 4; y += 0.5) {
       var boxGeometry = new THREE.BoxGeometry(4.4, 6, 4.4);
-      var boxMaterial = new THREE.MeshLambertMaterial({
-        color: 0x4d7ca2,
-      });
+      var boxMaterial;
+      if (controls.waveMaterial === "basic") {
+        boxMaterial = new THREE.MeshLambertMaterial({
+          color: 0x4d7ca2,
+        });
+      }
+      if (controls.waveMaterial === "phong") {
+        boxMaterial = new THREE.MeshPhongMaterial({
+          color: 0x4d7ca2,
+          specular: 0x0800ff,
+          shininess: 50,
+          flatShading: true,
+        });
+      }
+      if (controls.waveMaterial === "toon") {
+        boxMaterial = new THREE.MeshToonMaterial({
+          color: 0x4d7ca2,
+        });
+      }
+      if (controls.waveMaterial === "mesh") {
+        boxMaterial = new THREE.MeshBasicMaterial({
+          color: 0x4d7ca2,
+          wireframe: true,
+        });
+      }
       var box = new THREE.Mesh(boxGeometry, boxMaterial);
 
       box.position.x = 5.8 + x;
@@ -134,7 +193,9 @@ const updateWave = () => {
 
       box.vy = 0.1;
 
-      box.scale.y = 10 + Math.random() * 0.4;
+      box.scale.y = Math.sin(box.position.x / 3 + box.position.z / 6) + 1;
+      box.scale.z = Math.max(0.1, 0.05 * Math.abs(box.position.x - 5.8));
+
       box.scale.oldY = box.scale.y;
 
       scene.add(box);
