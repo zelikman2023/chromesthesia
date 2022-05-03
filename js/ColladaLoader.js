@@ -1,43 +1,5 @@
 
-// import {
-// 	AmbientLight,
-// 	AnimationClip,
-// 	Bone,
-// 	BufferGeometry,
-// 	ClampToEdgeWrapping,
-// 	Color,
-// 	DirectionalLight,
-// 	DoubleSide,
-// 	Euler,
-// 	FileLoader,
-// 	Float32BufferAttribute,
-// 	Group,
-// 	Line,
-// 	LineBasicMaterial,
-// 	LineSegments,
-// 	Loader,
-// 	LoaderUtils,
-// 	MathUtils,
-// 	Matrix4,
-// 	Mesh,
-// 	MeshBasicMaterial,
-// 	MeshLambertMaterial,
-// 	MeshPhongMaterial,
-// 	OrthographicCamera,
-// 	PerspectiveCamera,
-// 	PointLight,
-// 	Quaternion,
-// 	QuaternionKeyframeTrack,
-// 	RepeatWrapping,
-// 	Scene,
-// 	Skeleton,
-// 	SkinnedMesh,
-// 	SpotLight,
-// 	TextureLoader,
-// 	Vector3,
-// 	VectorKeyframeTrack
-// } from "../../../build/three.module.js";
-// import { TGALoader } from "../loaders/TGALoader.js";
+// Adapted from https://github.com/DeegZC/VSKeys
 
 var ColladaLoader = function ( manager ) {
 

@@ -1,0 +1,96 @@
+canvas {
+  width: 100%;
+  height: 100%;
+}
+html {
+  height: 100%;
+}
+
+body {
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+  font-size: 18px;
+  text-align: center;
+  margin: 0px;
+  overflow: hidden;
+  background-image: url("start.png");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  height: 100vh;
+  user-select: none;
+}
+
+#info {
+  position: absolute;
+  top: 0px;
+  width: 100%;
+  padding: 5px;
+}
+#rainbow-title {
+  font-size: 50px;
+  font-family: Arial Black, Gadget, sans-serif;
+  background-image: -webkit-linear-gradient(
+    left,
+    #f00,
+    #ff2b00,
+    #f50,
+    #ff8000,
+    #fa0,
+    #ffd500,
+    #ff0,
+    #0fa,
+    #00ffd5,
+    #0ff,
+    #00d5ff,
+    #0af,
+    #0080ff,
+    #05f,
+    #002aff,
+    #00f,
+    #2b00ff,
+    #50f,
+    #8000ff,
+    #a0f,
+    #d400ff,
+    #f0f,
+    #ff00d4,
+    #f0a,
+    #ff0080,
+    #f05,
+    #ff002b,
+    #f00
+  );
+  animation: animatedBackground_a 5s linear infinite alternate;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: #0000;
+  background-clip: text;
+}
+
+@keyframes animatedBackground_a {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: -500px 0;
+  }
+}
+#footer {
+  position: absolute;
+  bottom: 50px;
+  width: 100%;
+  padding: 5px;
+}
+
+a {
+  color: #1e83ff;
+}
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}

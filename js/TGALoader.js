@@ -1,10 +1,4 @@
-/*
-import {
-	FileLoader,
-	Loader,
-	Texture
-} from "../../../build/three.module.js";
-*/
+// Adapted from https://github.com/DeegZC/VSKeys
 var TGALoader = function ( manager ) {
 
 	new THREE.Loader( this, manager );
