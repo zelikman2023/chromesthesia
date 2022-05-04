@@ -67,7 +67,7 @@ const CONTROLS = new (function () {
     cameraControls.target.set(5, 0, 0);
   };
   this.trippyView = () => {
-    camera.position.set(5, 5, -50);
+    camera.position.set(0, 20, 45);
     camera.lookAt(new THREE.Vector3(6, 1, -4));
     cameraControls.target.set(5, 0, 0);
   };
@@ -218,7 +218,7 @@ const CONTROLS = new (function () {
       hidePiano();
       this.showSphere = false;
       hideAllSpheres();
-      this.showWave = true;
+      this.showWave = false;
       initializeWave();
     }
     initializeEffects();
@@ -497,7 +497,7 @@ const makeGUI = () => {
       "Colorful Piano": "colorful",
       "Close Up FM": "closeup",
       "Nostalgic AM": "nostalgic",
-      "Trippy Waves": "trippy",
+      "Trippy Duo": "trippy",
     })
     .name("Custom Preset")
     .onChange(controls.selectPreset);
