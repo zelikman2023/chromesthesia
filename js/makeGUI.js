@@ -3,16 +3,6 @@ const CONTROLS = new (function () {
   this.key_max_rotation = 0.72;
   // Camera Settings
   this.orbit = false;
-  this.resetView = () => {
-    cameraControls.autoRotate = false;
-    cameraControls.userZoom = true;
-    cameraControls.userRotate = true;
-    this.orbit = false;
-    this.lockCamera = false;
-    scene.hideAllSpheres();
-    scene.showPiano();
-    this.colorfulView();
-  };
   // Keyboard Settings
   this.instrument = "keyboard";
   this.showKeyboard = true;
@@ -35,7 +25,7 @@ const CONTROLS = new (function () {
   this.phaserAmount = 0;
   this.vibratoAmount = 0;
   // Color Settings
-  this.showColor = true;
+  this.showColor = false;
   this.gradient = "animated";
   this.showSpotlight = false;
   this.invertSpotlight = false;
@@ -46,182 +36,153 @@ const CONTROLS = new (function () {
   this.lockCamera = false;
   this.customView = "simple";
   // Camera Views
-  this.simpleView = () => {
-    camera.position.set(5, 10, 20);
-    camera.lookAt(new THREE.Vector3(5.8, 0, 0));
-    cameraControls.target.set(5.8, 0, 0);
+  this.setView = (pos, target) => {
+    camera.position.set(pos[0], pos[1], pos[2]);
+    cameraControls.target.set(target[0], target[1], target[2]);
   };
-  this.colorfulView = () => {
-    camera.position.set(5.8, 25, 10);
-    camera.lookAt(new THREE.Vector3(5.8, 0, 0));
-    cameraControls.target.set(5.8, 0, 0);
-  };
-  this.closeView = () => {
-    camera.position.set(-4, 2, 7);
-    camera.lookAt(new THREE.Vector3(6, 1, -4));
-    cameraControls.target.set(5, 0, 0);
-  };
-  this.nostalgicView = () => {
-    camera.position.set(-4, 11, 10);
-    camera.lookAt(new THREE.Vector3(6, 1, -4));
-    cameraControls.target.set(5, 0, 0);
-  };
-  this.trippyView = () => {
-    camera.position.set(0, 20, 45);
-    camera.lookAt(new THREE.Vector3(6, 1, -4));
-    cameraControls.target.set(5, 0, 0);
-  };
-  this.sphereView = () => {
-    camera.position.set(-15, 15, 30);
-    camera.lookAt(new THREE.Vector3(6, 1, -4));
-    cameraControls.target.set(5, 0, 0);
+  this.resetView = () => {
+    cameraControls.autoRotate = false;
+    cameraControls.userZoom = true;
+    cameraControls.userRotate = true;
+    this.orbit = false;
+    this.lockCamera = false;
+    hideAllSpheres();
+    showPiano();
+    this.setView([5.8, 25, 10], [5.8, 0, 0]);
   };
   // Preset Handler
   this.selectPreset = () => {
     // Simple Keyboard
     if (this.customView === "simple") {
       // Change Settings
-      this.instrument = "keyboard";
       this.octave = 2;
       this.sustain = false;
       // Set Effects
-      this.reverbAmount = 0;
-      reverb.setDecay(0);
-      this.chorusAmount = 0;
-      chorus.setFrequency(0);
-      this.phaserAmount = 0;
-      phaser.setFrequency(0);
-      this.vibratoAmount = 0;
-      vibrato.setFrequency(0);
+      selectInstrument("keyboard", 0, 0, 0, 0);
       this.volume = 100;
       // Set Color
       this.showColor = false;
       document.body.style.background = "";
-      this.map = "messiaen";
+      this.map = "rainbow";
+      this.vintage = false;
       // Set View
-      this.simpleView();
-      handleInstrument("keyboard");
-      showPiano();
-      hideAllSpheres();
+      this.setView([5.8, 25, 10], [5.8, 0, 0]);
+      renderInstrument("keyboard");
+      selectPiano();
     } else {
       this.showColor = true;
     }
-    // Colorful Piano
-    if (this.customView === "colorful") {
+    // Scriabin Piano
+    if (this.customView === "scriabin") {
       // Change Settings
-      this.instrument = "keyboard";
       this.octave = 2;
       this.sustain = true;
       // Set Effects
-      this.reverbAmount = 10;
-      reverb.setDecay(10);
-      this.chorusAmount = 0;
-      chorus.setFrequency(0);
-      this.phaserAmount = 0;
-      phaser.setFrequency(0);
-      this.vibratoAmount = 0;
-      vibrato.setFrequency(0);
+      selectInstrument("keyboard", 10, 5, 0, 5);
       this.volume = 100;
-      // Set Color
-      this.gradient = "radial";
+      document.body.style.background =
+        "radial-gradient(circle, #ff0000, #f0f0f0, #ff8000)";
+      this.gradient = "animated";
       this.map = "scriabin";
+      this.vintage = false;
       // Set View
-      this.colorfulView();
-      handleInstrument("keyboard");
-      this.showKeyboard = true;
-      showPiano();
-      this.showSphere = false;
-      hideAllSpheres();
-      this.showWave = false;
-      initializeWave();
+      this.setView([-2.5, 8.5, 20], [5.8, 0, 0]);
+      renderInstrument("keyboard");
+      selectPiano();
     }
-    // Close Up FM
-    if (this.customView === "closeup") {
+    // Sunset FM
+    if (this.customView === "sunset") {
       // Change Settings
-      this.instrument = "fmsynth";
       this.octave = 2;
       this.sustain = true;
       // Set Effects
-      this.reverbAmount = 50;
-      reverb.setDecay(50);
-      this.chorusAmount = 10;
-      chorus.setFrequency(10);
-      this.phaserAmount = 5;
-      phaser.setFrequency(5);
-      this.vibratoAmount = 50;
-      vibrato.setFrequency(50);
+      selectInstrument("fmsynth", 50, 10, 5, 50);
       this.volume = 85;
       // Set Color
+      document.body.style.background =
+        "radial-gradient(circle, #f42494, #ffcf00, #ff2000)";
       this.map = "rainbow";
       this.gradient = "radial";
+      this.vintage = false;
       // Set View
-      this.closeView();
-      handleInstrument("fmsynth");
-      this.showKeyboard = true;
-      showPiano();
-      this.showSphere = false;
-      hideAllSpheres();
-      this.showWave = false;
-      initializeWave();
+      this.setView([-3, 2, 5], [5.8, 0, 0]);
+      renderInstrument("fmsynth");
+      selectPiano();
     }
     if (this.customView === "nostalgic") {
       // Change Settings
-      this.instrument = "amsynth";
       this.octave = 2;
       this.sustain = true;
       // Set Effects
-      this.reverbAmount = 100;
-      reverb.setDecay(100);
-      this.chorusAmount = 30;
-      chorus.setFrequency(30);
-      this.phaserAmount = 2;
-      phaser.setFrequency(2);
-      this.vibratoAmount = 10;
-      vibrato.setFrequency(10);
+      selectInstrument("amsynth", 100, 10, 2, 10);
       this.volume = 90;
       // Set Color
-      this.gradient = "radial";
+      document.body.style.background =
+        "radial-gradient(circle, #007fff, #09feab, #00ffff)";
+      this.gradient = "conic";
       this.map = "mars";
+      this.vintage = false;
       // Set View
-      this.nostalgicView();
-      handleInstrument("amsynth");
-      this.showWave = false;
-      initializeWave();
+      this.setView([-4, 11, 15], [5.8, 0, 0]);
+      renderInstrument("amsynth");
+      selectPiano();
+      // Set Vintage Mode
+      this.vintage = true;
       showBigSphere();
-      this.showKeyboard = true;
-      showPiano();
-      this.showSphere = false;
-      hideSpheres();
     }
-    if (this.customView === "trippy") {
+    if (this.customView === "retro") {
       // Change Settings
-      this.instrument = "duosynth";
       this.octave = 2;
       this.sustain = true;
       // Set Effects
-      this.reverbAmount = 10;
-      reverb.setDecay(10);
-      this.chorusAmount = 0;
-      chorus.setFrequency(0);
-      this.phaserAmount = 10;
-      phaser.setFrequency(10);
-      this.vibratoAmount = 10;
-      vibrato.setFrequency(10);
+      selectInstrument("duosynth", 10, 100, 100, 100);
+      this.volume = 85;
+      document.body.style.background =
+        "conic-gradient(#ff2000, #007ac7, #f42494, #ff2000)";
+      // Set Color
+      this.gradient = "conic";
+      this.map = "reverserainbow";
+      this.vintage = false;
+      // Set View
+      this.setView([0, 20, 30], [5.8, 0, 0]);
+      renderInstrument("duosynth");
+      selectPiano();
+    }
+    if (this.customView === "sphere") {
+      // Change Settings
+      this.octave = 2;
+      this.sustain = true;
+      // Set Effects
+      selectInstrument("amsynth", 5, 0, 0, 0);
+      this.volume = 85;
+      document.body.style.background =
+        "radial-gradient(circle, #ffff00, #c0428a, #0000ff, #ffffff)";
+      // Set Color
+      this.gradient = "radial";
+      this.map = "messiaen";
+      this.vintage = false;
+      // Set View
+      this.setView([-40, 5, -20], [5.8, 0, 0]);
+      selectSphere("phong");
+      updateSphere();
+    }
+    if (this.customView === "wave") {
+      // Change Settings
+      this.octave = 2;
+      this.sustain = true;
+      // Set Effects
+      selectInstrument("fmsynth", 10, 0, 10, 10);
       this.volume = 85;
       // Set Color
-      this.gradient = "random";
+      this.gradient = "animated";
       this.map = "reverserainbow";
+      this.vintage = false;
       // Set View
-      this.trippyView();
-      handleInstrument("duosynth");
-      this.showKeyboard = false;
-      hidePiano();
-      this.showSphere = false;
-      hideAllSpheres();
-      this.showWave = false;
+      this.setView([0, 20, 45], [5.8, 0, 0]);
+      selectWave("toon");
+      this.autoWave = true;
       initializeWave();
     }
-    initializeEffects();
   };
 })();
 
@@ -241,7 +202,16 @@ const makeGUI = () => {
     })
     .name("Instrument")
     .listen();
-  instrument.onChange(handleInstrument);
+  instrument.onChange((val) => {
+    selectInstrument(
+      val,
+      controls.reverbAmount,
+      controls.chorusAmount,
+      controls.phaserAmount,
+      controls.vibratoAmount
+    );
+    renderInstrument(val);
+  });
 
   // Show Keyboard
   const showKeyboard = keyboardFolder
@@ -269,19 +239,19 @@ const makeGUI = () => {
     .name("Sustain")
     .listen();
   sustain.onChange((value) => {
-    tone.releaseAll();
+    scene.tone.releaseAll();
     // Make sure reverb is off
     if (!value && !!controls.reverbAmount) reverbEffect.setValue(0);
   });
 
-  var mute = keyboardFolder.add(controls, "mute").name("Mute");
+  var mute = keyboardFolder.add(controls, "mute").name("Mute").listen();
   mute.onChange((value) => {
     if (value) {
       lastVolume = controls.volume;
-      volumeControl.setValue(0);
-      volume.mute = true;
+      setVolume(scene.volume, 0);
+      scene.volume.mute = true;
     } else {
-      volumeControl.setValue(lastVolume);
+      setVolume(scene.volume, lastVolume);
     }
   });
 
@@ -305,7 +275,10 @@ const makeGUI = () => {
     .add(controls, "showLabels")
     .name("Show Labels")
     .listen();
-  labels.onChange(moveKeyLabels);
+  labels.onChange((val) => {
+    if (!controls.showKeyboard && val) controls.showLabels = false;
+    moveKeyLabels();
+  });
 
   const sphereFolder = gui.addFolder("Sphere");
 
@@ -329,20 +302,22 @@ const makeGUI = () => {
   });
 
   // Sphere Material
-  sphereFolder
+  const sphereMaterial = sphereFolder
     .add(controls, "sphereMaterial", {
       Basic: "basic",
-      Phong: "phong",
       Toon: "toon",
+      Phong: "phong",
       Mesh: "mesh",
     })
     .name("Sphere Material")
     .listen();
+  sphereMaterial.onChange(() => {
+    if (controls.showSphere) updateSpheres();
+  });
 
   sphereFolder.add(controls, "autoSphere").name("Auto Update").listen();
 
   const waveFolder = gui.addFolder("Wave");
-
   // Show Wave
   var showWave = waveFolder
     .add(controls, "showWave")
@@ -363,15 +338,18 @@ const makeGUI = () => {
   });
 
   // Wave Material
-  waveFolder
+  const waveMaterial = waveFolder
     .add(controls, "waveMaterial", {
       Basic: "basic",
-      Phong: "phong",
       Toon: "toon",
+      Phong: "phong",
       Mesh: "mesh",
     })
     .name("Wave Material")
-    .onChange(() => initializeWave());
+    .listen();
+  waveMaterial.onChange(() => {
+    if (controls.showWave) initializeWave();
+  });
 
   waveFolder.add(controls, "autoWave").name("Auto Update").listen();
 
@@ -381,7 +359,7 @@ const makeGUI = () => {
 
   var showColor = colorFolder
     .add(controls, "showColor")
-    .name("Show Color")
+    .name("Animate Background")
     .listen();
   showColor.onChange(() => {
     document.body.style.background = "";
@@ -437,8 +415,9 @@ const makeGUI = () => {
     .name("Volume")
     .listen();
   volumeControl.onChange((value) => {
-    volume.volume.value = value / 2 - 50;
-    volume.mute = !value;
+    setVolume(scene.volume, value);
+    scene.volume.mute = !value;
+    controls.mute = !value;
   });
 
   // Add reverb effect
@@ -448,9 +427,10 @@ const makeGUI = () => {
     .name("Reverb")
     .listen();
   reverbEffect.onChange((value) => {
-    reverb.setDecay(value);
+    setReverb(scene.reverb, value);
     if (value > 0 && !controls.sustain) sustain.setValue(true);
     if (controls.showSphere) updateSpheres();
+    if (controls.showWave) initializeWave();
   });
 
   // Add chorus effect
@@ -460,8 +440,9 @@ const makeGUI = () => {
     .name("Chorus")
     .listen();
   chorusEffect.onChange((value) => {
-    chorus.setFrequency(value);
+    setChorus(scene.chorus, value);
     if (controls.showSphere) updateSpheres();
+    if (controls.showWave) initializeWave();
   });
 
   // Add phaser effect
@@ -471,8 +452,9 @@ const makeGUI = () => {
     .name("Phaser")
     .listen();
   phaserEffect.onChange((value) => {
-    phaser.setFrequency(value);
+    setPhaser(scene.phaser, value);
     if (controls.showSphere) updateSpheres();
+    if (controls.showWave) initializeWave();
   });
 
   // Add vibrato effect
@@ -482,8 +464,9 @@ const makeGUI = () => {
     .name("Vibrato")
     .listen();
   vibratoEffect.onChange((value) => {
-    vibrato.setFrequency(value);
+    setVibrato(scene.vibrato, value);
     if (controls.showSphere) updateSpheres();
+    if (controls.showWave) initializeWave();
   });
 
   // Folder for custom views
@@ -494,10 +477,12 @@ const makeGUI = () => {
   viewFolder
     .add(controls, "customView", {
       "Simple Keyboard": "simple",
-      "Colorful Piano": "colorful",
-      "Close Up FM": "closeup",
+      "Scriabin's Piano": "scriabin",
+      "Sunset FM": "sunset",
       "Nostalgic AM": "nostalgic",
-      "Trippy Duo": "trippy",
+      "Retro Duo": "retro",
+      "Messiaen's Sphere": "sphere",
+      "Cartoon Waves": "wave",
     })
     .name("Custom Preset")
     .onChange(controls.selectPreset);

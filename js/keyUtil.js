@@ -50,34 +50,34 @@ function keyCode_to_color(note) {
   let colorMap;
   if (controls.map === "rainbow") {
     colorMap = {
-      0: "#ff2000", // E
-      1: "#00b3d6", // D#
+      0: "#ff2000", // C
+      1: "#00b3d6", // C#
       2: "#ffa600", // D
-      3: "#0024b9", // C#
-      4: "#ffff00", // C
-      5: "#f42494", // B
-      6: "#00b901", // Bb
-      7: "#ff7e00", // A
+      3: "#0024b9", // D#
+      4: "#ffff00", // E
+      5: "#f42494", // F
+      6: "#00b901", // F#
+      7: "#ff7e00", // G
       8: "#007ac7", // G#
-      9: "#ffcf00", // G
-      10: "#8b21ba", // F#
-      11: "#85ce00", // F
+      9: "#ffcf00", // A
+      10: "#8b21ba", // A#
+      11: "#85ce00", // B
     };
   }
   if (controls.map === "reverserainbow") {
     colorMap = {
-      0: "#ff2000", // E
-      1: "#85ce00", // F
-      2: "#8b21ba", // F#
-      3: "#ffcf00", // G
-      4: "#007ac7", // G#
-      5: "#ff7e00", // A
-      6: "#00b901", // Bb
-      7: "#f42494", // B
-      8: "#ffff00", // C
-      9: "#0024b9", // C#
-      10: "#ffa600", // D
-      11: "#00b3d6", // D#
+      0: "#ff2000", // C
+      1: "#85ce00", // C#
+      2: "#8b21ba", // D
+      3: "#ffcf00", // D#
+      4: "#007ac7", // E
+      5: "#ff7e00", // F
+      6: "#00b901", // F#
+      7: "#f42494", // G
+      8: "#ffff00", // G#
+      9: "#0024b9", // A
+      10: "#ffa600", // A#
+      11: "#00b3d6", // B
     };
   }
   if (controls.map === "scriabin") {
@@ -129,4 +129,56 @@ function keyCode_to_color(note) {
     };
   }
   return colorMap[note % 12];
+}
+
+// Change background color based on key pressed
+function changeBackgroundColor(note) {
+  const hexcode = keyCode_to_color(note - 21);
+  // Single color
+  document.body.style.background = "none";
+  document.body.style.backgroundColor = hexcode;
+
+  if (controls.gradient !== "single") {
+    // Multiple colors
+    if (Object.keys(keys_down).length > 1) {
+      let gradient;
+      if (controls.gradient === "conic") {
+        gradient = "conic-gradient(";
+      }
+      if (controls.gradient === "radial" || controls.gradient === "animated") {
+        gradient = "radial-gradient(circle, ";
+      }
+
+      if (controls.gradient === "random") {
+        gradient = getRandom(["conic-gradient(", "radial-gradient(circle, "]);
+      }
+
+      let firstColor = [Object.keys(keys_down)[0], false];
+      if (gradient === "conic-gradient(") {
+        firstColor[1] = true;
+      }
+
+      for (let key in keys_down) {
+        const note = keyCode_to_note(key).substring(1);
+        const color = keyCode_to_color(note);
+        gradient += `${color},`;
+      }
+
+      if (firstColor[1]) {
+        const note = keyCode_to_note(firstColor[0]).substring(1);
+        const color = keyCode_to_color(note);
+        gradient += `${color},`;
+      }
+      gradient = gradient.slice(0, -1) + ")";
+
+      document.body.style.background = gradient;
+      if (controls.gradient === "animated") {
+        document.body.style.backgroundSize = "400% 400%";
+        document.body.style.animation = "gradient 10s infinite ease-in-out";
+      } else {
+        document.body.style.backgroundSize = "100% 100%";
+        document.body.style.animation = "none";
+      }
+    }
+  }
 }

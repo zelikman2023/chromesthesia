@@ -56,6 +56,148 @@ const createPianoTone = () =>
     },
   });
 
-const createAMTone = () => new Tone.PolySynth(Tone.AMSynth, 6);
-const createFMTone = () => new Tone.PolySynth(Tone.FMSynth, 6);
-const createDuoTone = () => new Tone.PolySynth(Tone.DuoSynth, 6);
+const createAMTone = () => new Tone.AMSynth();
+const createFMTone = () => new Tone.FMSynth();
+const createDuoTone = () => new Tone.DuoSynth();
+
+const createReverb = (val = 0.1) => {
+  const reverb = new Tone.Reverb(val);
+  reverb.wet.value = 0;
+  return reverb;
+};
+
+const setReverb = (reverb, value) => {
+  if (value > 0) {
+    reverb.decay = value / 10;
+  }
+  reverb.wet.value = !!value ? 1 : 0;
+  controls.reverbAmount = value;
+};
+
+const createChorus = (val = 0.1) => {
+  const chorus = new Tone.Chorus(val).start();
+  chorus.wet.value = 0;
+  return chorus;
+};
+
+const setChorus = (chorus, value) => {
+  if (value > 0) {
+    chorus.frequency.value = value / 50;
+  }
+  chorus.wet.value = !!value ? 1 : 0;
+  controls.chorusAmount = value;
+};
+
+const createPhaser = (val = 0.1) => {
+  const phaser = new Tone.Phaser(val);
+  phaser.wet.value = 0;
+  return phaser;
+};
+
+const setPhaser = (phaser, value) => {
+  if (value > 0) {
+    phaser.frequency.value = value / 10;
+  }
+  phaser.wet.value = !!value ? 1 : 0;
+  !!value ? scene.oscClock.start() : scene.oscClock.stop();
+  controls.phaserAmount = value;
+};
+
+const createVibrato = (val = 0.1) => {
+  const vibrato = new Tone.Vibrato(val);
+  vibrato.wet.value = 0;
+  return vibrato;
+};
+
+const setVibrato = (vibrato, value) => {
+  if (value > 0) {
+    vibrato.frequency.value = value / 5;
+  }
+  vibrato.wet.value = !!value ? 1 : 0;
+  controls.vibratoAmount = value;
+};
+
+const createVolume = (val = 0) => new Tone.Volume(val);
+
+const setVolume = (volume, value) => {
+  volume.volume.value = value / 2 - 50;
+  controls.volume = value;
+};
+
+const initializeEffects = (r = 0, c = 0, p = 0, v = 0, on = true) => {
+  scene.reverb = createReverb();
+  scene.chorus = createChorus();
+  scene.phaser = createPhaser();
+  scene.vibrato = createVibrato();
+  scene.volume = createVolume();
+  if (on) {
+    setReverb(scene.reverb, r);
+    setChorus(scene.chorus, c);
+    setPhaser(scene.phaser, p);
+    setVibrato(scene.vibrato, v);
+    setVolume(scene.volume, 100);
+  }
+  scene.tone.chain(
+    scene.reverb,
+    scene.chorus,
+    scene.phaser,
+    scene.vibrato,
+    scene.volume,
+    Tone.Master
+  );
+};
+
+const selectInstrument = (value, reverb, chorus, phaser, vibrato) => {
+  scene.tone.releaseAll();
+  scene.tone.dispose();
+  if (value === "keyboard") {
+    scene.tone = createPianoTone();
+    scene.tone.volume.value = 0;
+  }
+  if (value === "amsynth") {
+    scene.tone = new Tone.PolySynth(Tone.AMSynth, 6);
+    scene.tone.volume.value = -16;
+  }
+  if (value === "fmsynth") {
+    scene.tone = new Tone.PolySynth(Tone.FMSynth, 6);
+    scene.tone.volume.value = -20;
+  }
+  if (value === "duosynth") {
+    scene.tone = new Tone.PolySynth(Tone.DuoSynth, 1);
+    scene.tone.volume.value = -24;
+  }
+  controls.instrument = value;
+  initializeEffects(reverb, chorus, phaser, vibrato);
+};
+
+const renderInstrument = (value) => {
+  let blackColor;
+  let whiteColor;
+  if (value === "keyboard") {
+    blackColor = new THREE.Color("#000000");
+    whiteColor = new THREE.Color("#ffffff");
+  }
+  if (value === "amsynth") {
+    blackColor = new THREE.Color("#ff0000");
+    whiteColor = new THREE.Color("#c9fbff");
+  }
+  if (value === "fmsynth") {
+    blackColor = new THREE.Color("#8f013a");
+    whiteColor = new THREE.Color("#f7d8a1");
+  }
+  if (value === "duosynth") {
+    blackColor = new THREE.Color("#382301");
+    whiteColor = new THREE.Color("#b09364");
+  }
+  for (let i = 0; i < 81; i++) {
+    let x = i % 12;
+    if (scene.piano.children[i].material) {
+      if (x == 1 || x == 3 || x == 6 || x == 8 || x == 10) {
+        scene.piano.children[i].material.color = blackColor;
+      } else {
+        scene.piano.children[i].material.color = whiteColor;
+      }
+    }
+  }
+  loader.load("obj/piano.dae", prepare_scene);
+};

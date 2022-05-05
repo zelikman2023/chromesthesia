@@ -103,6 +103,7 @@ function initialize_labels(scene) {
     scene.add(keyLabels);
     keyLabels.hideable = hideableLabels;
     scene.keyLabels = keyLabels;
+    moveKeyLabels();
   });
 }
 

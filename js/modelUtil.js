@@ -1,16 +1,22 @@
 const hideAllSpheres = () => {
+  controls.showSphere = false;
+  controls.vintage = false;
   scene.sphere.visible = false;
   scene.chorusSphere.visible = false;
   scene.bigSphere.visible = false;
 };
 const hideSpheres = () => {
+  controls.showSphere = false;
   scene.sphere.visible = false;
   scene.chorusSphere.visible = false;
 };
 const hideBigSphere = () => {
+  controls.vintage = false;
   scene.bigSphere.visible = false;
 };
 const showAllSpheres = () => {
+  controls.showSphere = false;
+  controls.vintage = false;
   scene.sphere.visible = true;
   scene.chorusSphere.visible = true;
   scene.bigSphere.visible = true;
@@ -19,20 +25,55 @@ const showAllSpheres = () => {
   updateBigSphere();
 };
 const showSpheres = () => {
+  controls.showSphere = true;
   scene.sphere.visible = true;
   scene.chorusSphere.visible = true;
   updateSphere();
   updateChorusSphere();
 };
 const showBigSphere = () => {
+  controls.vintage = true;
   scene.bigSphere.visible = true;
   updateBigSphere();
 };
 const hidePiano = () => {
+  controls.showKeyboard = false;
+  controls.showLabels = false;
   scene.piano.visible = false;
 };
 const showPiano = () => {
+  controls.showKeyboard = true;
   scene.piano.visible = true;
+};
+
+const hideWave = () => {
+  controls.showWave = false;
+  initializeWave();
+};
+
+const showWave = () => {
+  controls.showWave = true;
+  initializeWave();
+};
+
+const selectPiano = () => {
+  showPiano();
+  hideSpheres();
+  hideWave();
+};
+
+const selectSphere = (material = "basic") => {
+  showSpheres();
+  hidePiano();
+  hideWave();
+  controls.sphereMaterial = material;
+};
+
+const selectWave = (material = "basic") => {
+  showWave();
+  hidePiano();
+  hideSpheres();
+  controls.waveMaterial = material;
 };
 
 // Update main sphere
@@ -71,7 +112,7 @@ const updateChorusSphere = () => {
   for (const v of vertices) {
     let noise = getRandomArbitrary(-1, 1);
     if (controls.vibratoAmount > 0) {
-      noise *= 1 + controls.vibratoAmount / 40;
+      noise *= 1 + controls.vibratoAmount / 60;
     }
     let normal = v.clone().sub(center);
     normal.normalize();
@@ -124,7 +165,7 @@ const makeSphere = (radius) => {
 
   if (controls.sphereMaterial === "basic") {
     sMaterial = new THREE.MeshLambertMaterial({
-      color: 0xccb4e0,
+      color: 0x2d8070,
       opacity: 0.5,
     });
   }
@@ -138,7 +179,7 @@ const makeSphere = (radius) => {
   }
   if (controls.sphereMaterial === "toon") {
     sMaterial = new THREE.MeshToonMaterial({
-      color: 0xccb4e0,
+      color: 0x2d8070,
     });
   }
   if (controls.sphereMaterial === "mesh") {
@@ -154,6 +195,7 @@ const makeSphere = (radius) => {
   return sphere;
 };
 
+// Adapted from https://codepen.io/gbnikolov/pen/EaVVZz
 const initializeWave = () => {
   removeCubes();
   if (!controls.showWave) return;

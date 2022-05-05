@@ -1,6 +1,6 @@
 <html>
   <head>
-    <title>3D Piano Player (Three.js)</title>
+    <title>The Color of Music</title>
     <script
       src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r124/three.min.js"
       integrity="sha512-jeYvJdyAYkpQCY/omvCYQo89qA5YxDW4JBT7COPsHT2sOAanwxkZRFeP9gc69b5reSDpZIoyCqZQZcWZkbB5Gw=="
@@ -10,6 +10,7 @@
 
     <!-- <script src="js/three.js"></script> -->
     <script src="js/instruments.js"></script>
+    <script src="js/spotlight.js"></script>
     <script src="js/keyLabels.js"></script>
     <script src="js/keyUtil.js"></script>
     <script src="js/makeGUI.js"></script>
@@ -18,6 +19,8 @@
     <script src="js/OrbitAndPanControls.js"></script>
     <script src="js/TGALoader.js"></script>
     <script src="js/ColladaLoader.js"></script>
+    <script src="js/MIDILoader.js"></script>
+    <script src="js/MIDIPlayer.js"></script>
     <script
       src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.58/Tone.js"
       integrity="sha512-QhmI/idBFIq3hd9NsBFF8y6i5ziFjZP1bea5/J7piTjn6duaZ1LPsFuo26nTXeE1l98vOtXdNkHSzxVDmqVneg=="
@@ -45,105 +48,15 @@
         return a + (b - a) * Math.min(Math.max(x, 0.0), 1.0);
       }
 
-      var tone = createPianoTone();
+      // Get a random element from array
+      function getRandom(list) {
+        return list[Math.floor(Math.random() * list.length)];
+      }
 
-      var reverb = new Tone.Reverb(1);
-      reverb.wet.value = 0;
-      Tone.Reverb.prototype.setDecay = function (value) {
-        if (value > 0) {
-          this.decay = value / 10;
-        }
-        this.wet.value = !!value ? 1 : 0;
-      }.bind(reverb);
-
-      var chorus = new Tone.Chorus(0.001).start();
-      chorus.wet.value = 0;
-      Tone.Chorus.prototype.setFrequency = function (value) {
-        if (value > 0) {
-          this.frequency.value = value / 50;
-        }
-        this.wet.value = !!value ? 1 : 0;
-      }.bind(chorus);
-
-      var phaser = new Tone.Phaser(0.001);
-      phaser.wet.value = 0;
-      Tone.Phaser.prototype.setFrequency = function (value) {
-        if (value > 0) {
-          this.frequency.value = value / 10;
-        }
-        this.wet.value = !!value ? 1 : 0;
-      }.bind(phaser);
-
-      var vibrato = new Tone.Vibrato(0.001);
-      vibrato.wet.value = 0;
-      Tone.Vibrato.prototype.setFrequency = function (value) {
-        if (value > 0) {
-          this.frequency.value = value / 5;
-        }
-        this.wet.value = !!value ? 1 : 0;
-      }.bind(vibrato);
-
-      var volume = new Tone.Volume(0);
-
-      const initializeEffects = () => {
-        tone.releaseAll();
-        tone.disconnect();
-        tone.chain(reverb, chorus, phaser, vibrato, volume, Tone.Master);
-      };
-      initializeEffects();
-
-      const handleInstrument = (value) => {
-        tone.releaseAll();
-        tone.disconnect();
-        if (value === "keyboard") {
-          tone = createPianoTone();
-          tone.volume.value = 0;
-        }
-        if (value === "amsynth") {
-          tone = new Tone.PolySynth(Tone.AMSynth, 6);
-          tone.volume.value = -16;
-        }
-        if (value === "fmsynth") {
-          tone = new Tone.PolySynth(Tone.FMSynth, 6);
-          tone.volume.value = -20;
-        }
-        if (value === "duosynth") {
-          tone = new Tone.PolySynth(Tone.DuoSynth, 1);
-          tone.volume.value = -24;
-        }
-        initializeEffects();
-        // Change keyboard
-        let blackColor;
-        let whiteColor;
-        if (value === "keyboard") {
-          blackColor = new THREE.Color("#000000");
-          whiteColor = new THREE.Color("#ffffff");
-        }
-        if (value === "amsynth") {
-          blackColor = new THREE.Color("#ff0000");
-          whiteColor = new THREE.Color("#c9fbff");
-        }
-        if (value === "fmsynth") {
-          blackColor = new THREE.Color("#8f013a");
-          whiteColor = new THREE.Color("#f7d8a1");
-        }
-        if (value === "duosynth") {
-          blackColor = new THREE.Color("#382301");
-          whiteColor = new THREE.Color("#b09364");
-        }
-        for (let i = 0; i < 81; i++) {
-          let x = i % 12;
-          if (scene.piano.children[i].material) {
-            if (x == 1 || x == 3 || x == 6 || x == 8 || x == 10) {
-              scene.piano.children[i].material.color = blackColor;
-            } else {
-              scene.piano.children[i].material.color = whiteColor;
-            }
-          }
-        }
-        // initialize_keys(obj);
-        loader.load("obj/piano.dae", prepare_scene);
-      };
+      // Get random float
+      function getRandomArbitrary(min, max) {
+        return Math.random() * (max - min) + min;
+      }
 
       var controls = CONTROLS;
 
@@ -156,6 +69,7 @@
 
       var scene = new THREE.Scene();
       scene.background = null;
+      scene.tone = createPianoTone();
       var camera = new THREE.PerspectiveCamera(
         30,
         window.innerWidth / window.innerHeight,
@@ -180,8 +94,8 @@
       initializeWave();
 
       // Adapted from https://codepen.io/gbnikolov/pen/EaVVZz
-      (function updateWave(ts) {
-        requestAnimationFrame(updateWave);
+      (function renderWave(ts) {
+        requestAnimationFrame(renderWave);
         renderer.render(scene, camera);
 
         const pressedKeys = keys_down
@@ -191,6 +105,9 @@
           const note = keyCode_to_note(key).substring(1);
           return keyCode_to_color(note);
         });
+
+        // Initial color if none
+        if (colors.length === 0) colors.push("#2d8070");
 
         if ((!!pressedKeys.length || controls.autoWave) && controls.showWave) {
           scene.cubes.forEach(function (c) {
@@ -219,85 +136,9 @@
         }
       })();
 
-      // Create spotlight
-      function createSpotlight(color) {
-        const light = new THREE.SpotLight(color, 2);
-        light.castShadow = true;
-        light.angle = 0.3;
-        light.penumbra = 0.2;
-        light.decay = 2;
-        light.distance = 50;
-        return light;
-      }
-
-      // Get a random element from array
-      function getRandom(list) {
-        return list[Math.floor(Math.random() * list.length)];
-      }
-
-      // Get random float
-      function getRandomArbitrary(min, max) {
-        return Math.random() * (max - min) + min;
-      }
-
-      // Change background color based on key pressed
-      function changeBackgroundColor(note) {
-        const hexcode = keyCode_to_color(note - 21);
-        // Single color
-        document.body.style.background = "none";
-        document.body.style.backgroundColor = hexcode;
-
-        if (controls.gradient !== "single") {
-          // Multiple colors
-          if (Object.keys(keys_down).length > 1) {
-            let gradient;
-            if (controls.gradient === "conic") {
-              gradient = "conic-gradient(";
-            }
-            if (
-              controls.gradient === "radial" ||
-              controls.gradient === "animated"
-            ) {
-              gradient = "radial-gradient(circle, ";
-            }
-
-            if (controls.gradient === "random") {
-              gradient = getRandom([
-                "conic-gradient(",
-                "radial-gradient(circle, ",
-              ]);
-            }
-
-            let firstColor = [Object.keys(keys_down)[0], false];
-            if (gradient === "conic-gradient(") {
-              firstColor[1] = true;
-            }
-
-            for (let key in keys_down) {
-              const note = keyCode_to_note(key).substring(1);
-              const color = keyCode_to_color(note);
-              gradient += `${color},`;
-            }
-
-            if (firstColor[1]) {
-              const note = keyCode_to_note(firstColor[0]).substring(1);
-              const color = keyCode_to_color(note);
-              gradient += `${color},`;
-            }
-            gradient = gradient.slice(0, -1) + ")";
-
-            document.body.style.background = gradient;
-            if (controls.gradient === "animated") {
-              document.body.style.backgroundSize = "400% 400%";
-              document.body.style.animation =
-                "gradient 10s infinite ease-in-out";
-            } else {
-              document.body.style.backgroundSize = "100% 100%";
-              document.body.style.animation = "none";
-            }
-          }
-        }
-      }
+      MIDI.loader = new widgets.Loader({
+        message: "Loading Keyboard...",
+      });
 
       init_lights();
 
@@ -306,7 +147,6 @@
       loader.load("obj/piano.dae", prepare_scene);
 
       camera.position.set(5.8, 25, 10);
-      camera.lookAt(new THREE.Vector3(0, 0, 0));
 
       var cameraControls = new THREE.OrbitAndPanControls(
         camera,
@@ -363,8 +203,10 @@
       }
 
       function prepare_scene(collada) {
+        if (scene.hasGUI) MIDI.loader.start();
         // Remove current piano if one exists
         if (scene.piano) scene.remove(scene.piano);
+        if (scene.keyLabels) scene.remove(scene.keyLabels);
         // Set custom black and white key colors
         let blackColor;
         let whiteColor;
@@ -398,6 +240,7 @@
         scene.piano = collada.scene;
         scene.add(collada.scene);
         initialize_labels(scene);
+        MIDI.loader.stop();
       }
 
       function initialize_keys(obj) {
@@ -535,84 +378,21 @@
       scene.spotlightsCircle = circle;
       scene.spotlightsCircle.visible = false;
 
-      let targetPos = -5;
-      function changeSpotlight(note) {
-        const hexcode = keyCode_to_color(note - 21);
-        const color = controls.invertSpotlight ? invertColor(hexcode) : hexcode;
-
-        // Random spotlights
-        if (controls.spotlightDirection === "circle") {
-          const spotLight = createSpotlight(color);
-          let x = getRandomArbitrary(-10, 19);
-          let y = getRandomArbitrary(-5, 5);
-          let z = getRandomArbitrary(-10, 0);
-          spotLight.position.set(x, y, z);
-          spotLight.target.position.set(4.5, -0.3, 0);
-          scene.add(spotLight.target);
-          let lightHelper = new THREE.SpotLightHelper(spotLight);
-          scene.add(lightHelper);
-          scene.spotlights.push(lightHelper);
-        }
-        // Less random spotlights
-        if (
-          controls.spotlightDirection === "up" ||
-          controls.spotlightDirection === "down"
-        ) {
-          const vertices = scene.spotlightsCircle.geometry.vertices;
-          for (const v of vertices) {
-            let spotLight = createSpotlight(color);
-            const yOffset = controls.spotlightDirection === "up" ? 30 : -30;
-            spotLight.position.set(v.x + 6, v.y + yOffset, v.z - 5);
-
-            if (targetPos < 10) {
-              spotLight.target.position.set(targetPos, targetPos, targetPos);
-              targetPos += 1;
-            } else {
-              spotLight.target.position.set(targetPos, targetPos, targetPos);
-              targetPos = 0;
-            }
-
-            scene.add(spotLight.target);
-            let lightHelper = new THREE.SpotLightHelper(spotLight);
-            scene.add(lightHelper);
-            scene.spotlights.push(lightHelper);
-          }
-        }
-        if (controls.spotlightDirection === "random") {
-          const vertices = scene.spotlightsCircle.geometry.vertices;
-          for (const v of vertices) {
-            let spotLight = createSpotlight(color);
-            if (targetPos < 10) {
-              spotLight.target.position.set(targetPos, targetPos, targetPos);
-              targetPos += 1;
-            } else {
-              spotLight.target.position.set(targetPos, targetPos, targetPos);
-              targetPos = 0;
-            }
-            spotLight.position.set(v.x + 6, v.y - 10, v.z - 20);
-            spotLight.position.x += Math.random() * 30 - 15;
-            spotLight.position.y += Math.random() * 10 - 5;
-
-            scene.add(spotLight.target);
-            let lightHelper = new THREE.SpotLightHelper(spotLight);
-            scene.add(lightHelper);
-            scene.spotlights.push(lightHelper);
-          }
-        }
-      }
-
       scene.hasGUI = false;
+
       window.onkeydown = function (ev) {
         // First time initialization
         if (!scene.hasGUI) {
           makeGUI();
+          initializeEffects(0.1, 0.1, 0.1, 0.1, false);
           scene.hasGUI = true;
-          document.body.style.backgroundImage = "none";
           document.getElementById("info").innerHTML = "";
           document.getElementById("footer").innerHTML = "";
         }
         // If key isn't pressed down
         if (keys_down[ev.keyCode] != true) {
+          if (controls.instrument === "keyboard")
+            if (!scene.tone._buffers.loaded) return;
           // Convert key to note
           var note = keyCode_to_note(ev.keyCode);
           // If note exists
@@ -628,9 +408,12 @@
             const freq = Tone.Frequency(note, "midi").toFrequency();
             // Trigger attack based on sustain/instrument
             if (!controls.sustain || controls.instrument !== "keyboard") {
-              tone.triggerAttack(freq);
+              scene.tone.triggerAttack(freq);
             } else {
-              tone.triggerAttackRelease(freq, 2.5 + controls.reverbAmount / 10);
+              scene.tone.triggerAttackRelease(
+                freq,
+                2.5 + controls.reverbAmount / 10
+              );
             }
           }
         }
@@ -647,7 +430,7 @@
           var velocity = 127; // how hard the note hits
           const freq = Tone.Frequency(note, "midi").toFrequency();
           if (!controls.sustain || controls.instrument !== "keyboard") {
-            tone.triggerRelease(freq);
+            scene.tone.triggerRelease(freq);
           }
           // Remove spotlights
           for (let spotlight of scene.spotlights) {
@@ -656,6 +439,8 @@
           scene.spotlights = [];
         }
       };
+
+      window.onblur = () => scene.tone.releaseAll();
 
       window.addEventListener("resize", on_window_resize, false);
     </script>
